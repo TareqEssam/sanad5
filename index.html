@@ -1872,6 +1872,12 @@ async function startMirrorSetupByVoice() {
   const qs = mirrorSetupQuestions();
   mirrorSetupState = { qs: qs, idx: 0 };
   try {
+    const micOk = await ensureMicPermission();
+    if (!micOk) {
+      const em = listenErrorMessage(lastListenError) || 'لا أستطيع استخدام الميكروفون.';
+      updateStatus(em); await speakWait(em + ' يمكنك ضبط ملف المظهر لاحقاً من الإعدادات.');
+      return;
+    }
     await speakWait('لضبط المرآة على حالتك سأسألك ' + (qs.length === 1 ? 'سؤالاً واحداً' : qs.length + ' أسئلة') + ' فقط. أجب بكلمة قصيرة بعد النغمة.');
     for (let idx = 0; idx < qs.length; idx++) {
       const q = qs[idx];
@@ -2013,21 +2019,34 @@ async function runGuidedMirrorSession() {
   isProcessing = true;
   hideRiskIndicator();
   vibrate(35); playAckTone();
+  const micReq = ensureMicPermission(); /* يظهر مربع الإذن فوراً مع الضغطة */
   var allResults = [], allDetails = [], stageLog = [];
   try {
     /* 1) ما الذي سيحدث */
     const plan = 'سأفحص مظهرك في خمس لقطات: الوجه، ثم الجزء العلوي، ثم الجزء السفلي، ثم جسمك كاملاً، ثم منظر الظهر. سأخبرك في كل خطوة إن كان الإطار غير مناسب، ولن أبدأ التصوير حتى يصبح صحيحاً.';
+    let micState = '';
+    try { micState = (await navigator.permissions.query({ name: 'microphone' })).state; } catch (e) {}
+    if (micState === 'prompt') {
+      const adv = 'سيظهر على الشاشة طلب إذن الميكروفون. اختر «السماح» لأتمكن من سماع إجاباتك.';
+      updateStatus(adv); await speakWait(adv);
+    }
     updateStatus(plan);
     await speakWait(plan);
     /* 2) الخصوصية */
     await ensurePrivacyStep();
     /* 3) الضبط الصوتي للملف الشخصي (مرة واحدة) */
     if (!mirrorSetupDone() || !mirrorProfileComplete()) {
+      if (!(await micReq)) {
+        const em = listenErrorMessage(lastListenError) || 'لا أستطيع استخدام الميكروفون.';
+        updateStatus(em); await speakWait(em + ' سأكمل الفحص دون ضبط ملف المظهر.');
+      } else
+      {
       const ask = 'قبل الفحص، أحتاج ضبط ملف مظهرك. سأسألك ' + mirrorSetupQuestions().length + ' أسئلة قصيرة.';
       updateStatus(ask); await speakWait(ask);
       await startMirrorSetupByVoice();
       if (!mirrorProfileComplete()) {
         speak('لم يكتمل الضبط، لذلك لن أحكم على غطاء الرأس في هذه الجلسة. يمكنك ضبطه لاحقاً.');
+      }
       }
     }
     /* 4) تبديل الكاميرا */
@@ -3773,6 +3792,26 @@ function speakWait(text) {
   });
 }
 let lastListenError = '';
+/* طلب إذن الميكروفون صراحةً (يظهر مربع الإذن)، لأن التعرف الصوتي وحده قد يفشل بصمت
+   دون أن يطلب الإذن. يُستدعى من الضغطة نفسها قبل أي انتظار. */
+let micPermPromise = null;
+function ensureMicPermission() {
+  if (micPermPromise) return micPermPromise;
+  micPermPromise = (async () => {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return true; /* لا نستطيع الفحص؛ نجرّب الاستماع مباشرة */
+      const st = await navigator.mediaDevices.getUserMedia({ audio: true });
+      st.getTracks().forEach(t => t.stop());
+      return true;
+    } catch (e) {
+      lastListenError = (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) ? 'not-allowed' : 'audio-capture';
+      micPermPromise = null; /* نسمح بإعادة الطلب في المرة القادمة */
+      vibrate([300, 100, 300]);
+      return false;
+    }
+  })();
+  return micPermPromise;
+}
 /* إشارة «تكلّم الآن»: نغمة + اهتزاز دائماً. إن تعذّر تشغيل النغمة (المتصفح يمنع الصوت
    قبل لمسة المستخدم) يهتز الهاتف اهتزازاً أطول بدلاً منها، فلا يبقى الكفيف بلا إشارة. */
 async function micReadyCue() {

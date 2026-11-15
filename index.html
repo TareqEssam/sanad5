@@ -1865,63 +1865,40 @@ function mirrorProfileSummary() {
 }
 
 /* الضبط الصوتي: أسئلة متتابعة */
-function startMirrorSetupByVoice() {
+/* السبب القديم للعطل: كان السؤال يُنطق ثم يُلغى فوراً لأن الاستماع يبدأ قبل انتهائه،
+   فيسمع المستخدم «أجب بصوتك» بلا سؤال. الآن: انطق السؤال حتى ينتهي ← نغمة ← استمع. */
+async function startMirrorSetupByVoice() {
+  if (mirrorSetupState) return;
   const qs = mirrorSetupQuestions();
   mirrorSetupState = { qs: qs, idx: 0 };
-  speak('لضبط المرآة على حالتك سأسألك ' + (qs.length === 1 ? 'سؤالاً واحداً' : qs.length + 'أسئلة') + ' فقط. ' + qs[0].q);
-  updateStatus('اضغط «🎤 اسأل / أمر» ثم أجب بصوتك.');
-  listenForSetup();
-}
-function listenForSetup() {
-  const R = getSpeechRecognitionConstructor();
-  if (!R) {
-    const m = 'لا أستطيع استقبال صوتك هنا. اضبط ملف المظهر من الإعدادات.';
-    updateStatus(m); speak(m);
-    mirrorSetupState = null;
-    return;
-  }
-  stopSpeaking(); stopVoiceRecognition();
-  setTimeout(function () {
-    try {
-      const inst = new R();
-      recognition = inst;
-      inst.lang = 'ar-EG'; inst.continuous = false; inst.interimResults = false; inst.maxAlternatives = 3;
-      inst.onstart = function () { isListening = true; updateStatus('أستمع إليك... أجب بصوتك.'); };
-      inst.onresult = function (ev) {
-        isListening = false;
-        const txt = ev.results && ev.results[0] && ev.results[0][0] ? ev.results[0][0].transcript : '';
-        try { inst.stop(); } catch (e) {}
-        handleMirrorSetupAnswer(txt);
-      };
-      inst.onerror = function () { isListening = false; if (mirrorSetupState) speak('لم أسمع بوضوح. أجب مرة أخرى.'); };
-      inst.onend = function () { isListening = false; if (recognition === inst) recognition = null; };
-      inst.start();
-    } catch (e) { isListening = false; }
-  }, 200);
-}
-function handleMirrorSetupAnswer(text) {
-  if (!mirrorSetupState) return;
-  const st = mirrorSetupState;
-  const q = st.qs[st.idx];
-  const val = matchSetupAnswer(text, q.options);
-  if (!val) {
-    speak('لم أفهم. قلت: ' + q.q + ' أجب: ' + q.options.join(' أو ') + '.');
-    listenForSetup();
-    return;
-  }
-  applySetupAnswer(q.id, val);
-  st.idx++;
-  if (st.idx < st.qs.length) {
-    const nq = st.qs[st.idx];
-    speak('تمام. ' + nq.q);
-    listenForSetup();
-  } else {
-    mirrorSetupState = null;
+  try {
+    await speakWait('لضبط المرآة على حالتك سأسألك ' + (qs.length === 1 ? 'سؤالاً واحداً' : qs.length + ' أسئلة') + ' فقط. أجب بكلمة قصيرة بعد النغمة.');
+    for (let idx = 0; idx < qs.length; idx++) {
+      const q = qs[idx];
+      /* الأسئلة بعد الجنس تعتمد عليه، فنعيد بناءها بعد الإجابة الأولى */
+      let val = null;
+      for (let attempt = 0; attempt < 3 && !val; attempt++) {
+        const prompt = attempt === 0 ? q.q : ('لم أفهم. ' + q.q + ' قل: ' + q.options.join(' أو ') + '.');
+        updateStatus(q.q);
+        await speakWait(prompt);
+        const heard = await listenOnce(8000);
+        if (!heard) continue;
+        val = matchSetupAnswer(heard, q.options);
+      }
+      if (!val) {
+        await speakWait('لم أسمع إجابة واضحة. يمكنك ضبط ملف المظهر لاحقاً بالضغط على «ضبط ملف المظهر».');
+        return;
+      }
+      applySetupAnswer(q.id, val);
+      if (q.id === 'gender') { const fresh = mirrorSetupQuestions(); qs.length = 0; fresh.forEach(function (x) { qs.push(x); }); }
+    }
     writeLS(LS_MIRROR_SETUP, '1');
     const msg = 'تم ضبط ملف المظهر: ' + mirrorProfileSummary() + '.';
-    updateStatus(msg); speak(msg);
-  }
+    updateStatus(msg); await speakWait(msg);
+  } finally { mirrorSetupState = null; }
 }
+/* تُبقى لتوافق المسار الصوتي القديم؛ المسار الجديد لا يستدعيها */
+function handleMirrorSetupAnswer() {}
 
 /* تعديل الإعدادات صوتياً في أي وقت */
 function updateProfileByVoice(text) {
@@ -1972,8 +1949,7 @@ async function ensurePrivacyStep() {
   /* لا نطلب من الكفيف فصل الإنترنت: الضمان بنيوي لا سلوكي.
      وضع المرآة لا يستدعي أي مسار سحابي (assertCloudAllowed)، والفحص كله داخل الهاتف. */
   const m = 'كل شيء هنا يحدث داخل هاتفك، ولن أرسل صورتك لأي جهة.';
-  updateStatus(m); speak(m);
-  await waitMs(1800);
+  updateStatus(m); await speakWait(m);
   return true;
 }
 
@@ -2037,19 +2013,15 @@ async function runGuidedMirrorSession() {
   try {
     /* 1) ما الذي سيحدث */
     const plan = 'سأفحص مظهرك في خمس لقطات: الوجه، ثم الجزء العلوي، ثم الجزء السفلي، ثم جسمك كاملاً، ثم منظر الظهر. سأخبرك في كل خطوة إن كان الإطار غير مناسب، ولن أبدأ التصوير حتى يصبح صحيحاً.';
-    speak(plan);
     updateStatus(plan);
-    await waitMs(4200);
+    await speakWait(plan);
     /* 2) الخصوصية */
     await ensurePrivacyStep();
     /* 3) الضبط الصوتي للملف الشخصي (مرة واحدة) */
     if (!mirrorSetupDone() || !mirrorProfileComplete()) {
       const ask = 'قبل الفحص، أحتاج ضبط ملف مظهرك. سأسألك ' + mirrorSetupQuestions().length + ' أسئلة قصيرة.';
-      speak(ask); updateStatus(ask);
-      await waitMs(2200);
-      startMirrorSetupByVoice();
-      /* ننتظر انتهاء الضبط الصوتي */
-      for (var w = 0; w < 90 && mirrorSetupState; w++) await waitMs(1000);
+      updateStatus(ask); await speakWait(ask);
+      await startMirrorSetupByVoice();
       if (!mirrorProfileComplete()) {
         speak('لم يكتمل الضبط، لذلك لن أحكم على غطاء الرأس في هذه الجلسة. يمكنك ضبطه لاحقاً.');
       }
@@ -2063,9 +2035,8 @@ async function runGuidedMirrorSession() {
     /* 5) المراحل الخمس */
     for (var i = 0; i < MIRROR_GUIDED_STAGES.length; i++) {
       var stage = MIRROR_GUIDED_STAGES[i];
-      speak(stage.intro);
       updateStatus(stage.intro);
-      await waitMs(2600);
+      await speakWait(stage.intro);
       var fr = null, tries = 0, lastCode = '';
       while (tries < 8) {
         tries++;

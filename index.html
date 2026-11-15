@@ -269,6 +269,22 @@
           </label>
 
           <label class="flex items-start gap-3 rounded-xl border border-gray-700 p-3 cursor-pointer">
+            <input id="live-recog-hazard-checkbox" type="checkbox" checked>
+            <span>
+              <strong class="block text-base text-white">تعرّف تلقائي على المخاطر العامة من الحزم أثناء الرصد</strong>
+              <span class="text-gray-300">يقارن ما أمامك بحزم المخاطر المثبتة دون إبطاء التطبيق، وينبه عند الاشتباه. تخمين بصري، فلا يغني عن العصا. يحتاج أن تكون جهّزت نموذج البصمات مرة (بـ«ما هذا؟» أو «علّمني»).</span>
+            </span>
+          </label>
+
+          <label class="flex items-start gap-3 rounded-xl border border-gray-700 p-3 cursor-pointer">
+            <input id="live-recog-items-checkbox" type="checkbox">
+            <span>
+              <strong class="block text-base text-white">ذكر أشيائي تلقائياً أثناء الرصد (اختياري)</strong>
+              <span class="text-gray-300">يذكر الشيء الذي علّمتني إياه إذا ظهر أمامك، بصوت هادئ لا يقاطع، ولا يُذكر أبداً قبل تنبيه الخطر.</span>
+            </span>
+          </label>
+
+          <label class="flex items-start gap-3 rounded-xl border border-gray-700 p-3 cursor-pointer">
             <input id="spatial-audio-checkbox" type="checkbox" checked>
             <span>
               <strong class="block text-base text-white">صوت اتجاهي في السماعة (يمين / يسار / وسط)</strong>
@@ -602,6 +618,7 @@
   </div>
 
 <script src="mirror_core.js"></script>
+<script src="live_recog_core.js"></script>
 <script>
 const DEFAULT_PUBLIC_PROXY_URL = '';
 
@@ -613,6 +630,7 @@ const LS_SONAR_CAL = 's3aed_sonar_open_air_profile';
 const LS_OCR_READY_PREFIX = 'sanad_ocr_pack_ready_v1_';
 const LS_SEG_READY = 'sanad_segformer_ready_v1';
 const LS_DEPTH_READY = 'sanad_depth_ready_v1';
+const LS_DINO_READY = 'sanad_dino_ready_v1', LS_LIVE_HAZARD = 'sanad_live_hazard_v1', LS_LIVE_ITEMS = 'sanad_live_items_v1';
 
 const PROVIDERS = {
   gemini: {
@@ -868,6 +886,7 @@ async function restoreCachedTransformersFlags() {
     }
     if (allUrls.some(url => url.includes('Xenova/segformer-b0-finetuned-ade-512-512'))) writeLS(LS_SEG_READY, '1');
     if (allUrls.some(url => url.includes('onnx-community/depth-anything-v2-small'))) writeLS(LS_DEPTH_READY, '1');
+    if (allUrls.some(url => url.includes('Xenova/dinov2-small') && url.includes('model_quantized.onnx'))) writeLS(LS_DINO_READY, '1');
   } catch (e) {}
   refreshAssetButtonsState();
 }
@@ -2524,6 +2543,7 @@ function getRelativePositionArabic(bbox, vw) { if (!bbox || !vw) return 'في ا
 function sideFromPosition(pos) { return pos === 'على اليسار' ? 'left' : (pos === 'على اليمين' ? 'right' : 'center'); }
 
 function startLiveMonitoring() {
+  startLiveRecognition();
   if (liveMonitorTimer) return;
   if (localScanEnabled && lifeMode !== 'grooming') initLocalObjectEngine();
   liveMonitorTimer = setInterval(async () => {
@@ -2539,6 +2559,7 @@ function startLiveMonitoring() {
     isScanningFrame = true;
     try {
       const preds = await objectModel.detect(videoElement, 5, 0.56);
+      lastCocoPreds = { t: Date.now(), preds: preds || [], vw: videoElement.videoWidth, vh: videoElement.videoHeight };
       const objects = (preds || []).filter(p => LOCAL_OBJECT_MAP[p.class])
         .sort((a, b) => ((LOCAL_OBJECT_MAP[b.class].priority || 1) - (LOCAL_OBJECT_MAP[a.class].priority || 1)) || ((b.score || 0) - (a.score || 0)));
       const top = objects[0];
@@ -2562,7 +2583,7 @@ function startLiveMonitoring() {
     } catch (e) {} finally { isScanningFrame = false; }
   }, 1200);
 }
-function stopLiveMonitoring() { if (liveMonitorTimer) { clearInterval(liveMonitorTimer); liveMonitorTimer = null; } }
+function stopLiveMonitoring() { stopLiveRecognition(); if (liveMonitorTimer) { clearInterval(liveMonitorTimer); liveMonitorTimer = null; } }
 function setNavMode(on, announce) {
   navModeEnabled = !!on; writeLS(LS_NAV_MODE, navModeEnabled);
   if (navModeCheckbox) navModeCheckbox.checked = navModeEnabled;
@@ -3674,7 +3695,7 @@ let personalExtractor = null, personalLoading = null, personalItems = null;
 const GENERAL_MIN_SIM = 0.55, GENERAL_MARGIN = 0.04;
 const PACK_MODEL_ID = 'Xenova/dinov2-small:q8', PACK_DIM = 768, PACK_MAX_BYTES = 15 * 1024 * 1024;
 const PACK_KINDS = ['hazard', 'place', 'object', 'background'];
-let installedPacks = null, generalClasses = [];
+let installedPacks = null, generalClasses = [], hazardPool = [];
 
 function packClean(s, max) { return String(s || '').replace(/<[^>]*>/g, '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, max || 60); }
 function packBytes(b64) { const s = atob(b64), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; }
@@ -3700,6 +3721,8 @@ function validatePack(p) {
 function rebuildGeneralClasses() {
   generalClasses = [];
   for (const p of (installedPacks || [])) for (const c of p.classes) generalClasses.push({ name: c.name, kind: c.kind, vecs: c.vecs, pack: p.id });
+  // مجموعة الرصد الحي: المخاطر + الخلفية فقط، فلا يبطؤ الرصد مهما كبرت حزم الأماكن والأشياء
+  hazardPool = generalClasses.filter(c => c.kind === 'hazard' || c.kind === 'background');
 }
 async function loadInstalledPacks() {
   if (!installedPacks) { installedPacks = (await idbGet('packs')) || []; rebuildGeneralClasses(); }
@@ -4005,21 +4028,100 @@ function matchPersonalByName(items, raw) {
 const YES_WORDS = ['نعم', 'ايوه', 'ايوا', 'اه', 'تمام', 'صح', 'احفظ', 'موافق', 'ماشي'];
 function isYes(t) { const n = normalizeArabicCommand(t); return YES_WORDS.map(normalizeArabicCommand).some(w => n === w || n.startsWith(w + ' ')); }
 
+/* ===== محرك البصمات: عامل منفصل (الأفضل) أو الخيط الرئيسي كبديل =====
+   العامل (embed_worker.js) يُبقي الرصد والصوت والواجهة سلسة أثناء الاستدلال. إن تعذّر العامل يعمل التعرف
+   عند الطلب على الخيط الرئيسي كما كان، ويتوقف الرصد التلقائي بالبصمات (لأن الاستدلال على الخيط الرئيسي يجمّد كل شيء). */
+const SL = window.SanadLive || null;
+if (!SL) console.error('live_recog_core.js لم يُحمَّل: الرصد التلقائي بالبصمات معطّل.');
+let embedWorker = null, embedWorkerInit = null, embedWorkerStructFail = false, embedReqId = 0, embedEpoch = 0;
+const embedPending = new Map();
+const EMBED_TIMEOUT_MS = 30000;
+
+// أي طلب من المستخدم (علّمني/ما هذا؟/ابحث) يبطل نتائج الرصد المعلّقة ويوقف الرصد لحظات
+function claimEmbedder() { embedEpoch++; liveRecog.holdUntil = Date.now() + 2500; }
+
+function rejectAllEmbeds(msg) {
+  for (const [, p] of embedPending) { clearTimeout(p.timer); p.reject(new Error(msg)); }
+  embedPending.clear();
+}
+function startEmbedWorker() {
+  if (embedWorker) return Promise.resolve(true);
+  if (embedWorkerInit) return embedWorkerInit;
+  if (embedWorkerStructFail || typeof Worker === 'undefined' || location.protocol === 'file:') return Promise.resolve(false);
+  const p = new Promise(resolve => {
+    let w, settled = false;
+    const done = ok => { if (!settled) { settled = true; resolve(ok); } };
+    try { w = new Worker('embed_worker.js', { type: 'module' }); }
+    catch (e) { embedWorkerStructFail = true; done(false); return; }
+    w.onerror = () => {
+      rejectAllEmbeds('worker error');
+      try { w.terminate(); } catch (e) {}
+      if (embedWorker === w) embedWorker = null;
+      if (!settled) embedWorkerStructFail = true;   // لم يبدأ أصلاً: السكربت لم يُحمَّل أو النوع غير مدعوم
+      done(false);
+    };
+    w.onmessage = ev => {
+      const m = ev.data || {};
+      if (m.type === 'ready') { embedWorker = w; writeLS(LS_DINO_READY, '1'); done(true); return; }
+      if (m.type === 'init-error') { try { w.terminate(); } catch (e) {} done(false); return; }   // غالباً الشبكة/الكاش: يمكن إعادة المحاولة لاحقاً
+      const q = embedPending.get(m.id); if (!q) return;
+      embedPending.delete(m.id); clearTimeout(q.timer);
+      m.ok ? q.resolve({ vec: m.vec, ms: m.ms || 0 }) : q.reject(new Error(m.message || 'embed failed'));
+    };
+    w.postMessage({ type: 'init' });
+  });
+  embedWorkerInit = p;
+  p.then(() => { if (embedWorkerInit === p) embedWorkerInit = null; });
+  return p;
+}
+function workerEmbedTimed(blob) {
+  return new Promise((resolve, reject) => {
+    if (!embedWorker) { reject(new Error('no worker')); return; }
+    const id = ++embedReqId;
+    const timer = setTimeout(() => { if (embedPending.delete(id)) reject(new Error('embed timeout')); }, EMBED_TIMEOUT_MS);
+    embedPending.set(id, { resolve, reject, timer });
+    try { embedWorker.postMessage({ type: 'embed', id, blob }); }
+    catch (e) { clearTimeout(timer); embedPending.delete(id); reject(e); }
+  });
+}
+async function workerEmbed(blob) { return (await workerEmbedTimed(blob)).vec; }
+
 async function ensurePersonalModel() {
-  if (personalExtractor) return personalExtractor;
+  if (embedWorker) return 'worker';
+  if (personalExtractor) return 'main';
   if (personalLoading) return personalLoading;
   personalLoading = (async () => {
     try {
       updateStatus('جارٍ تجهيز نموذج التعرف على أشيائك (مرة واحدة، يلزم إنترنت)...');
+      if (await startEmbedWorker()) return 'worker';
       const mod = await loadTransformersEngineFixed();
       personalExtractor = await mod.pipeline('image-feature-extraction', 'Xenova/dinov2-small', { device: 'wasm', dtype: 'q8' });
-      return personalExtractor;
+      writeLS(LS_DINO_READY, '1');
+      return 'main';
     } catch (e) { personalExtractor = null; updateStatus('تعذر تحميل النموذج: ' + (e?.message || '')); return null; }
     finally { personalLoading = null; }
   })();
   return personalLoading;
 }
+function canvasToJpegBlob(c, q) {
+  return new Promise((res, rej) => { try { c.toBlob(b => b ? res(b) : rej(new Error('toBlob')), 'image/jpeg', q || 0.9); } catch (e) { rej(e); } });
+}
+// نفس JPEG 0.9 ونفس مسار فك الصورة السابقين ⇒ بصمات متطابقة مع الحزم
+async function embedCanvas(c) {
+  const be = embedWorker ? 'worker' : (personalExtractor ? 'main' : await ensurePersonalModel());
+  if (be === 'worker') return workerEmbed(await canvasToJpegBlob(c, 0.9));
+  if (be === 'main' && personalExtractor) {
+    const out = await personalExtractor(c.toDataURL('image/jpeg', 0.9));
+    const dims = out.dims, D = dims[dims.length - 1], N = dims.length >= 3 ? dims[dims.length - 2] : 1, d = out.data;
+    const cls = normVec(d.slice(0, D)), mean = new Float32Array(D);
+    if (N > 1) { for (let t = 1; t < N; t++) for (let i = 0; i < D; i++) mean[i] += d[t * D + i] / (N - 1); }
+    const both = new Float32Array(2 * D); both.set(cls, 0); both.set(normVec(N > 1 ? mean : cls), D);
+    return normVec(both);
+  }
+  throw new Error('لا يوجد محرك بصمات جاهز.');
+}
 async function embedFrame(crop) {
+  claimEmbedder();
   captureFrame(crop ? 640 : 320, 0.9);
   let srcCanvas = canvas;
   if (crop) {
@@ -4028,17 +4130,162 @@ async function embedFrame(crop) {
     c2.getContext('2d').drawImage(canvas, Math.round(canvas.width * crop[0]), 0, cw, ch, 0, 0, cw, ch);
     srcCanvas = c2;
   }
-  const out = await personalExtractor(srcCanvas.toDataURL('image/jpeg', 0.9));
-  const dims = out.dims, D = dims[dims.length - 1], N = dims.length >= 3 ? dims[dims.length - 2] : 1, d = out.data;
-  const cls = normVec(d.slice(0, D)), mean = new Float32Array(D);
-  if (N > 1) { for (let t = 1; t < N; t++) for (let i = 0; i < D; i++) mean[i] += d[t * D + i] / (N - 1); }
-  const both = new Float32Array(2 * D); both.set(cls, 0); both.set(normVec(N > 1 ? mean : cls), D);
-  return normVec(both);
+  return embedCanvas(srcCanvas);
 }
+
+/* ===== الرصد التلقائي بالبصمات: المخاطر العامة (دائماً أولاً) + أشيائي (اختياري) =====
+   - بصمة واحدة للإطار تُقارَن بالاثنين معاً (المقارنة شبه مجانية، كلفتها كلها في النموذج).
+   - تعمل في العامل فقط، بفتحة واحدة في آن، ولا طابور: ما فات يُتجاهل.
+   - الفاصل = 3 × زمن البصمة المقيس (≈25% من المعالج)، وتتوقف الميزة تماماً على الجهاز البالغ البطء مع إخبار المستخدم مرة.
+   - لا تعمل في المرآة/الملابس، ولا أثناء كلام المساعد أو طلب المستخدم. لا تنزيل تلقائياً: يلزم أن يكون النموذج مجهّزاً سابقاً. */
+let lastCocoPreds = null;
+let liveHazardEnabled = readLS(LS_LIVE_HAZARD, '1') !== '0';
+let liveItemsEnabled = readLS(LS_LIVE_ITEMS, '0') === '1';
+const liveRecog = {
+  running: false, timer: null, busy: false, counter: 0, samples: 0, ema: 0, off: false, workerTried: false, fails: 0,
+  lastThumb: null, lastEmbedAt: 0, holdUntil: 0, gateCv: null, liveCv: null,
+  hazardVotes: SL ? SL.createVoteTracker({ need: 2, strong: GENERAL_MIN_SIM + 0.10 }) : null,
+  itemVotes: SL ? SL.createVoteTracker({ need: 2, strong: 0.80 }) : null,
+  lastHazardKey: '', lastHazardTime: 0, lastItemKey: '', lastItemTime: 0
+};
+
+function grabLiveThumb() {
+  const v = videoElement; if (!v || !v.videoWidth) return null;
+  const c = liveRecog.gateCv || (liveRecog.gateCv = document.createElement('canvas'));
+  c.width = 32; c.height = 24;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.drawImage(v, 0, 0, 32, 24);
+  const d = x.getImageData(0, 0, 32, 24).data, g = new Uint8Array(32 * 24);
+  for (let i = 0, p = 0; i < d.length; i += 4, p++) g[p] = (d[i] * 77 + d[i + 1] * 150 + d[i + 2] * 29) >> 8;
+  return g;
+}
+// قماش مستقل عن canvas العام كي لا نزاحم captureFrame ولا نلمس لقطات الآخرين
+function renderLiveFrame(slot, roi) {
+  const v = videoElement, vw = v.videoWidth, vh = v.videoHeight;
+  const c = liveRecog.liveCv || (liveRecog.liveCv = document.createElement('canvas'));
+  let sx = 0, sy = 0, sw = vw, sh = vh;
+  if (slot === 'roi' && roi) { sx = roi.x; sy = roi.y; sw = roi.w; sh = roi.h; }
+  const s = Math.min(1, 320 / Math.max(sw, sh));
+  c.width = Math.max(1, Math.round(sw * s)); c.height = Math.max(1, Math.round(sh * s));
+  c.getContext('2d', { alpha: false }).drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  return c;
+}
+async function liveRecogEnsureWorker() {
+  if (embedWorker || liveRecog.workerTried) return;
+  if (!isSavedFlag(LS_DINO_READY)) return;      // لا تنزيل تلقائي: المستخدم لم يجهّز النموذج بعد
+  liveRecog.workerTried = true;                 // محاولة واحدة لكل جلسة
+  await startEmbedWorker();
+}
+function liveRecogTooSlow() {
+  liveRecog.off = true; stopLiveRecognition();
+  const m = 'الرصد التلقائي للمخاطر بالصور متوقف لأن هذا الجهاز بطيء في هذه الميزة. ما زال «ما هذا؟» يعمل عند الطلب.';
+  updateStatus(m); speak(m, false);
+}
+function handleLiveVector(v, slot, now) {
+  // 1) المخاطر العامة أولاً: مجموعة hazard + background فقط
+  if (slot === 'scene' && liveHazardEnabled && hazardPool.length) {
+    const g = decideGeneral(v, hazardPool);
+    const hit = (g.kind === 'match' && g.cls && g.cls.kind === 'hazard') ? { name: g.name, score: g.cls.score } : null;
+    const conf = liveRecog.hazardVotes.push(hit, now);
+    if (!hit && liveRecog.hazardVotes.clearedFor(2)) liveRecog.lastHazardKey = '';
+    if (conf && (conf.name !== liveRecog.lastHazardKey || (now - liveRecog.lastHazardTime) > 8000) && (now - lastHazardAlertTime) > 1500) {
+      liveRecog.lastHazardKey = conf.name; liveRecog.lastHazardTime = now;
+      const msg = generalSpeech({ name: conf.name, cls: { kind: 'hazard' } });
+      playSpatialBeep('center', true); vibrate([85, 55, 85]);
+      updateStatus(msg); updateRiskIndicator('يستلزم الحذر'); lastDescription = msg; speak(msg, true);
+      return;
+    }
+  }
+  // 2) أشيائي (اختياري): هادئ ولا يقاطع، ولا يُنطق إن أُعلن خطر قبل لحظات
+  if (liveItemsEnabled && personalItems && personalItems.length && !assistantSpeaking) {
+    const d = decidePersonal(v, personalItems);
+    const hit = d.kind === 'match' ? { name: d.name, score: (d.r && d.r[0] && d.r[0].score) || 0 } : null;
+    const conf = liveRecog.itemVotes.push(hit, now);
+    if (conf && (now - liveRecog.lastHazardTime) > 6000 && (conf.name !== liveRecog.lastItemKey || (now - liveRecog.lastItemTime) > 15000)) {
+      liveRecog.lastItemKey = conf.name; liveRecog.lastItemTime = now;
+      const msg = 'أظن أمامك ' + conf.name + '.' + (MED_RE.test(conf.name) ? ' هذا تخمين بصري؛ تأكد من الاسم المكتوب قبل الاستعمال.' : '');
+      updateStatus(msg); speak(msg, false);
+    }
+  }
+}
+async function liveRecogTick() {
+  liveRecog.timer = null;
+  if (!liveRecog.running || !SL) return;
+  const again = ms => { if (liveRecog.running && !liveRecog.timer) liveRecog.timer = setTimeout(liveRecogTick, ms); };
+  try {
+    if (liveRecog.busy) return again(500);
+    if (installedPacks === null) await loadInstalledPacks();
+    if (liveItemsEnabled && personalItems === null) await loadPersonalItems();
+    const gate = SL.liveGate({
+      running: liveRecog.running, hidden: document.hidden, nav: navModeEnabled, lifeMode,
+      busyUser: isProcessing || isListening || Date.now() < liveRecog.holdUntil,
+      speaking: assistantSpeaking,
+      videoOk: !!(videoElement && !videoElement.paused && !videoElement.ended && videoElement.videoWidth > 0),
+      backendReady: !!embedWorker,
+      wantHazard: liveHazardEnabled, hasHazardPool: hazardPool.length > 0,
+      wantItems: liveItemsEnabled, hasItems: !!(personalItems && personalItems.length)
+    });
+    if (gate === 'nobackend') { await liveRecogEnsureWorker(); return again(2000); }
+    if (gate !== 'run') return again(gate === 'user' ? 800 : (gate === 'speaking' ? 700 : (gate === 'novideo' ? 1500 : 3000)));
+    if (isScanningFrame) return again(250);          // لا نزاحم لحظة كشف الأجسام
+
+    const now = Date.now(), thumb = grabLiveThumb();
+    if (!thumb || !SL.thumbUsable(thumb)) return again(1500);
+    const diff = SL.sceneDiff(liveRecog.lastThumb, thumb);
+    if (!SL.shouldEmbed({ diff, now, lastEmbedAt: liveRecog.lastEmbedAt })) return again(500);
+
+    const hasItems = !!(liveItemsEnabled && personalItems && personalItems.length);
+    const roi = (hasItems && lastCocoPreds && (now - lastCocoPreds.t) < 1500) ? SL.chooseRoi(lastCocoPreds.preds, lastCocoPreds.vw, lastCocoPreds.vh) : null;
+    const slot = SL.pickSlot(liveRecog.counter++, { items: hasItems, roi: !!roi });
+    const epoch = embedEpoch;
+    liveRecog.busy = true; liveRecog.lastThumb = thumb; liveRecog.lastEmbedAt = now;
+    let res = null;
+    try { res = await workerEmbedTimed(await canvasToJpegBlob(renderLiveFrame(slot, roi), 0.9)); liveRecog.fails = 0; }
+    catch (e) { liveRecog.fails++; }
+    finally { liveRecog.busy = false; }
+    if (!res) { if (liveRecog.fails >= 3) { liveRecog.off = true; stopLiveRecognition(); return; } return again(3000); }
+
+    liveRecog.samples++;
+    if (liveRecog.samples > 1) liveRecog.ema = SL.updateEma(liveRecog.ema, res.ms);   // أول قياس = إحماء
+    const plan = SL.computeInterval(liveRecog.ema, { samples: liveRecog.samples - 1, cores: navigator.hardwareConcurrency, mem: navigator.deviceMemory });
+    const win = Math.max(9000, plan.delay * 2.5);
+    liveRecog.hazardVotes.setWindow(win); liveRecog.itemVotes.setWindow(win);
+    // نتيجة قديمة (طلب مستخدم جرى أثناء الحساب) أو المستخدم مشغول ⇒ تُهمل
+    if (epoch === embedEpoch && !isProcessing && !isListening) handleLiveVector(res.vec, slot, Date.now());
+    if (plan.tier === 'off') return liveRecogTooSlow();
+    again(plan.delay);
+  } catch (e) { again(3000); }
+}
+function startLiveRecognition() {
+  if (!SL || liveRecog.running || liveRecog.off) return;
+  liveRecog.running = true; liveRecog.counter = 0;
+  liveRecog.timer = setTimeout(liveRecogTick, 2500);
+}
+function stopLiveRecognition() {
+  liveRecog.running = false;
+  if (liveRecog.timer) { clearTimeout(liveRecog.timer); liveRecog.timer = null; }
+  if (liveRecog.hazardVotes) liveRecog.hazardVotes.reset();
+  if (liveRecog.itemVotes) liveRecog.itemVotes.reset();
+  liveRecog.lastThumb = null; liveRecog.lastEmbedAt = 0;
+}
+(function wireLiveRecogSettings() {
+  const hz = document.getElementById('live-recog-hazard-checkbox'), it = document.getElementById('live-recog-items-checkbox');
+  const reenable = () => { liveRecog.off = false; liveRecog.ema = 0; liveRecog.samples = 0; liveRecog.fails = 0; if (!liveRecog.running && liveMonitorTimer) startLiveRecognition(); };
+  if (hz) { hz.checked = liveHazardEnabled; hz.addEventListener('change', () => { liveHazardEnabled = hz.checked; writeLS(LS_LIVE_HAZARD, liveHazardEnabled ? '1' : '0'); if (liveHazardEnabled) reenable(); }); }
+  if (it) { it.checked = liveItemsEnabled; it.addEventListener('change', () => { liveItemsEnabled = it.checked; writeLS(LS_LIVE_ITEMS, liveItemsEnabled ? '1' : '0'); if (liveItemsEnabled) reenable(); }); }
+})();
+// قياس على الهاتف (من وحدة تحكم المتصفح عبر الفحص عن بعد): sanadLiveStats()
+window.sanadLiveStats = () => {
+  const plan = SL ? SL.computeInterval(liveRecog.ema, { samples: Math.max(0, liveRecog.samples - 1), cores: navigator.hardwareConcurrency, mem: navigator.deviceMemory }) : null;
+  return { backend: embedWorker ? 'worker' : (personalExtractor ? 'main' : 'none'), running: liveRecog.running, off: liveRecog.off,
+    samples: liveRecog.samples, emaMs: Math.round(liveRecog.ema), tier: plan && plan.tier, delayMs: plan && plan.delay,
+    hazardClasses: hazardPool.length, items: personalItems ? personalItems.length : null,
+    cores: navigator.hardwareConcurrency || null, memGB: navigator.deviceMemory || null };
+};
 const MED_RE = /(دواء|دوا|حبوب|قرص|اقراص|شراب|علاج|حقن|مرهم|قطره|كبسول)/;
 
 async function teachPersonal() {
-  if (isProcessing) return; isProcessing = true; hideRiskIndicator();
+  if (isProcessing) return; isProcessing = true; hideRiskIndicator(); claimEmbedder();
   try {
     const items = await loadPersonalItems();
     if (!(await ensurePersonalModel())) { speak('تعذر تجهيز النموذج. تأكد من الإنترنت وحاول مرة أخرى.'); return; }
@@ -4064,6 +4311,12 @@ async function teachPersonal() {
     const nn = normalizeArabicCommand(name), exist = items.find(it => normalizeArabicCommand(it.name) === nn);
     let warn = '';
     for (const it of items) { if (it === exist) continue; const s = Math.max(...shots.map(v => Math.max(...it.vecs.map(w => dotVec(v, w))))); if (s > PERSONAL_LOOKALIKE) { warn = ' تنبيه: يشبه «' + it.name + '» كثيراً وقد أخلط بينهما.'; break; } }
+    await loadInstalledPacks();
+    for (const c of generalClasses) {
+      if (c.kind !== 'hazard') continue;
+      const s2 = Math.max(...shots.map(v => Math.max(...c.vecs.map(w => dotVec(v, w)))));
+      if (s2 > PERSONAL_LOOKALIKE) { warn += ' تنبيه: يشبه خطراً معروفاً «' + c.name + '» وقد يختلط الأمر.'; break; }
+    }
     if (!exist && items.length >= PERSONAL_MAX_ITEMS) { await speakWait('وصلت للحد الأقصى من الأشياء. احذف شيئاً أولاً.'); return; }
     await speakWait('سأحفظه باسم ' + name + '.' + warn + ' انتظر نغمتين من الميكروفون، ثم قل نعم للحفظ أو لا للإلغاء.');
     if (!isYes(await listenOnce())) { await speakWait('تم الإلغاء.'); return; }
@@ -4074,9 +4327,16 @@ async function teachPersonal() {
   finally { isProcessing = false; isListening = false; }
 }
 
+function composeIdentifyLegacy(d, g) {
+  if (d.kind === 'match') return 'أظنه ' + d.name + ' من أشيائك.' + (MED_RE.test(d.name) ? ' هذا تخمين بصري؛ تأكد من الاسم المكتوب قبل الاستعمال.' : '');
+  if (d.kind === 'ambiguous') return 'قد يكون ' + d.a + ' أو ' + d.b + ' من أشيائك. لست متأكداً.';
+  if (g.kind === 'match') return generalSpeech(g);
+  if (g.kind === 'ambiguous') return 'قد يكون ' + g.a + ' أو ' + g.b + ' من المعرفة العامة. لست متأكداً.';
+  return 'لا أعرف هذا الشيء. قرّبه وأعد المحاولة أو علّمني إياه.';
+}
 async function identifyPersonal() {
   if (isProcessing) { updateStatus('انتظر انتهاء الطلب الحالي.'); return; }
-  isProcessing = true; hideRiskIndicator(); vibrate(35); playAckTone();
+  isProcessing = true; hideRiskIndicator(); vibrate(35); playAckTone(); claimEmbedder();
   try {
     const items = await loadPersonalItems();
     await loadInstalledPacks();
@@ -4090,12 +4350,8 @@ async function identifyPersonal() {
       const g = generalClasses.length ? decideGeneral(v, generalClasses) : { kind: 'unknown', r: [] };
       const top2 = r => r.slice(0, 2).map(x => x.name + ' ' + x.score.toFixed(2)).join(' | ') || '—';
       updateStatus('(معايرة) خاص: ' + top2(d.r) + ' ‖ عام: ' + top2(g.r));
-      let m;
-      if (d.kind === 'match') m = 'أظنه ' + d.name + ' من أشيائك.' + (MED_RE.test(d.name) ? ' هذا تخمين بصري؛ تأكد من الاسم المكتوب قبل الاستعمال.' : '');
-      else if (d.kind === 'ambiguous') m = 'قد يكون ' + d.a + ' أو ' + d.b + ' من أشيائك. لست متأكداً.';
-      else if (g.kind === 'match') m = generalSpeech(g);
-      else if (g.kind === 'ambiguous') m = 'قد يكون ' + g.a + ' أو ' + g.b + ' من المعرفة العامة. لست متأكداً.';
-      else m = 'لا أعرف هذا الشيء. قرّبه وأعد المحاولة أو علّمني إياه.';
+      // الخطر العام المؤكد يُنطق أولاً ولا تحجبه مطابقة أشيائك (تبقى مطابقتك تُذكر بعده)
+      const m = SL ? SL.composeIdentifyMessage(d, g, { generalSpeech, medRe: MED_RE }) : composeIdentifyLegacy(d, g);
       lastDescription = m; speak(m);
     });
   } catch (e) { speak('تعذر التعرف الآن.'); }

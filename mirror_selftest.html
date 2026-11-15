@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>سند — اختبار المرآة المحلية (بلا إنترنت)</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 14px; background: #0b1020; color: #e6edf7;
+         font-family: system-ui, "Segoe UI", Tahoma, Arial, sans-serif; line-height: 1.8; }
+  h1 { font-size: 20px; margin: 0 0 6px; color: #c4b5fd; }
+  p.sub { margin: 0 0 14px; font-size: 13px; color: #94a3b8; }
+  .card { background: #111a33; border: 1px solid #2c3a5e; border-radius: 14px; padding: 12px; margin-bottom: 12px; }
+  button, select, input[type=file] { font: inherit; }
+  button { background: #6d28d9; color: #fff; border: 1px solid #a78bfa; border-radius: 11px;
+           padding: 10px 14px; font-weight: 700; min-height: 46px; cursor: pointer; }
+  button.ghost { background: #1f2937; border-color: #4b5563; }
+  input[type=file] { color: #e6edf7; background: #0f172a; border: 1px dashed #475569;
+                     border-radius: 11px; padding: 10px; width: 100%; }
+  #summary { font-size: 18px; background: #1e1b4b; border: 1px solid #6d28d9; border-radius: 12px; padding: 12px; }
+  #detail { font-size: 14px; background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 10px;
+            white-space: pre-wrap; max-height: 40vh; overflow: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { border: 1px solid #334155; padding: 6px 8px; text-align: start; }
+  th { background: #1e293b; }
+  .tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 700; }
+  .ok { background: #064e3b; color: #a7f3d0; }
+  .att { background: #78350f; color: #fde68a; }
+  .unk { background: #1f2937; color: #e5e7eb; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+  .muted { color: #94a3b8; font-size: 12px; }
+  #preview { max-width: 100%; border-radius: 12px; border: 1px solid #334155; }
+</style>
+</head>
+<body>
+<h1>🪞 اختبار المرآة المحلية</h1>
+<p class="sub">
+  يعمل بلا إنترنت وبلا أي نموذج خارجي: كل القياسات تُحسب من بكسلات الصورة داخل الصفحة.
+  الغرض: معايرة العتبات على صور حقيقية من استخدامك، وقياس نسبة التطابق قبل الاعتماد.
+</p>
+
+<div class="card">
+  <label for="file"><strong>1) اختر صورة</strong> (صورة وجهك أمام المرآة، أو صورة ملابس)</label>
+  <input id="file" type="file" accept="image/*">
+  <div class="row">
+        <label>نوع اللقطة:
+      <select id="mode">
+        <option value="face">وجه (شعر ونظارة ولحية)</option>
+        <option value="upper">الجزء العلوي (ملابس ولون وقميص)</option>
+        <option value="lower">الجزء السفلي (لون وحذاء)</option>
+        <option value="full">الجسم كاملاً</option>
+      </select>
+    </label>
+    <button id="run" type="button" disabled>شغّل الفحص</button>
+    <button id="clear" type="button" class="ghost">مسح السجل المحلي</button>
+  </div>
+  <p class="muted" id="hint">لن تُرسل الصورة إلى أي جهة. كل شيء يبقى في هذه الصفحة.</p>
+</div>
+
+<div class="card" id="outCard" hidden>
+  <h2 style="font-size:17px;margin:0 0 8px;color:#a78bfa;">2) النتيجة</h2>
+  <div id="summary"></div>
+  <div id="detail" style="margin-top:10px;"></div>
+  <p class="muted" id="srcInfo"></p>
+</div>
+
+<div class="card" id="metricCard" hidden>
+  <h2 style="font-size:17px;margin:0 0 8px;color:#a78bfa;">3) القياسات الخام (لمعايرة العتبات)</h2>
+  <table id="metrics"></table>
+</div>
+
+<div class="card" id="stageCard" hidden>
+  <h2 style="font-size:17px;margin:0 0 8px;color:#a78bfa;">4) تأطير كل مرحلة (وجه/علوي/سفلي/كامل/ظهر)</h2>
+  <div id="stage-out" style="font-size:13px;line-height:1.9;color:#cbd5e1;"></div>
+</div>
+
+<div class="card" id="labelCard" hidden>
+  <h2 style="font-size:17px;margin:0 0 8px;color:#a78bfa;">5) التسمية الصحيحة (لحساب نسبة التطابق)</h2>
+  <div class="row">
+    <label>الشعر:
+      <select id="labHair">
+        <option value="">— اختر —</option>
+        <option value="neat">مرتب</option>
+        <option value="messy">غير مرتب</option>
+        <option value="unknown">لا يظهر</option>
+      </select>
+    </label>
+    <label>النظارة:
+      <select id="labGlasses">
+        <option value="">— اختر —</option>
+        <option value="straight">مستوية</option>
+        <option value="tilted">مائلة</option>
+        <option value="none">لا يوجد أثر</option>
+      </select>
+    </label>
+    <label>بقعة على الملابس:
+      <select id="labStain">
+        <option value="">— اختر —</option>
+        <option value="yes">نعم</option>
+        <option value="no">لا</option>
+      </select>
+    </label>
+    <label>اللحية:
+      <select id="labBeard">
+        <option value="">— اختر —</option>
+        <option value="neat">مرتبة</option>
+        <option value="rough">غير مستوية</option>
+        <option value="none">لا لحية</option>
+      </select>
+    </label>
+    <label>غطاء الرأس:
+      <select id="labCover">
+        <option value="">— اختر —</option>
+        <option value="clean">مغطّى بلا شعر</option>
+        <option value="strands">شعر ظاهر</option>
+        <option value="none">لا غطاء رأس</option>
+      </select>
+    </label>
+    <label>القميص:
+      <select id="labTuck">
+        <option value="">— اختر —</option>
+        <option value="tucked">مهندم</option>
+        <option value="untucked">منسدل</option>
+      </select>
+    </label>
+    <label>الحذاء:
+      <select id="labShoes">
+        <option value="">— اختر —</option>
+        <option value="same">نفس اللون</option>
+        <option value="different">مختلف</option>
+        <option value="none">لا يظهر</option>
+      </select>
+    </label>
+    <button id="record" type="button">سجّل النتيجة</button>
+  </div>
+  <table id="score" style="margin-top:10px;"></table>
+  <p class="muted">التسجيل محفوظ في هذا المتصفح فقط (localStorage) ويمكن مسحه.</p>
+</div>
+
+<script src="mirror_core.js"></script>
+<script>
+/* عرض تأطير المراحل الخمس (لمعايرة توجيه سند) */
+function renderStages(work) {
+  const out = document.getElementById('stage-out');
+  if (!out || !work || !window.SanadMirror) return;
+  const names = { face: 'الوجه', upper: 'الجزء العلوي', lower: 'الجزء السفلي', full: 'الجسم كاملاً', back: 'منظر الظهر' };
+  const box = SanadMirror.detectFaceBoxBySkin(work);
+  const extent = SanadMirror.detectPersonExtent(work, box);
+  const lines = [];
+  ['face', 'upper', 'lower', 'full', 'back'].forEach(function (st) {
+    const r = SanadMirror.evaluateStageFraming(work, box, extent, st);
+    lines.push('<b>' + names[st] + ':</b> ' + (r.ok ? 'جاهز ✔' : (r.code + ' — ' + r.hint)));
+  });
+  out.innerHTML = lines.join('<br>');
+  const card = document.getElementById('stageCard');
+  if (card) card.hidden = false;
+}
+(function () {
+  'use strict';
+  var img = new Image();
+  var loaded = false;
+  var fileEl = document.getElementById('file');
+  var runBtn = document.getElementById('run');
+  var lastOut = null;
+
+  fileEl.addEventListener('change', function () {
+    var f = fileEl.files && fileEl.files[0];
+    if (!f) return;
+    var url = URL.createObjectURL(f);
+    img.onload = function () { loaded = true; runBtn.disabled = false; document.getElementById('hint').textContent = 'جاهز. اضغط «شغّل الفحص». الصورة ' + img.naturalWidth + '×' + img.naturalHeight + '.'; };
+    img.onerror = function () { document.getElementById('hint').textContent = 'تعذّر قراءة الصورة.'; };
+    img.src = url;
+  });
+
+  runBtn.addEventListener('click', function () {
+    if (!loaded) return;
+    runBtn.disabled = true;
+    document.getElementById('hint').textContent = 'جارٍ التحليل...';
+    /* حارس الشبكة: أي محاولة شبكة أثناء الفحص تُلغى */
+    var origFetch = window.fetch, origOpen = XMLHttpRequest.prototype.open, violations = [];
+    window.fetch = function () { violations.push('fetch'); return Promise.reject(new Error('محاولة شبكة')); };
+    XMLHttpRequest.prototype.open = function () { violations.push('xhr'); return origOpen.apply(this, arguments); };
+    var modeEl = document.getElementById('mode');
+    var mode = modeEl ? modeEl.value : 'face';
+    var prof = null;
+    try { prof = JSON.parse(localStorage.getItem('sanad_mirror_profile_v1') || 'null'); } catch (e) {}
+    Promise.resolve(SanadMirror.runInspection({ source: img, maxDim: 480, mode: mode, profile: prof }))
+      .then(function (out) {
+        window.fetch = origFetch; XMLHttpRequest.prototype.open = origOpen;
+        lastOut = out;
+        document.getElementById('outCard').hidden = false;
+        document.getElementById('metricCard').hidden = false;
+        document.getElementById('labelCard').hidden = false;
+        document.getElementById('summary').textContent = out.report.short;
+        document.getElementById('detail').textContent = out.report.detail;
+        document.getElementById('srcInfo').textContent =
+          'مصدر تحديد الوجه: ' + (out.faceSource === 'native' ? 'كاشف المتصفح المدمج' :
+            (out.faceSource === 'skin' ? 'بديل لون البشرة المحلي' : 'لم يُحدَّد الوجه')) +
+          ' — عدد وحدات الحكم: ' + out.report.known +
+          (violations.length ? ' — تحذير: محاولة شبكة أثناء الفحص: ' + violations.length : ' — بلا أي طلب شبكة.');
+        renderMetrics(out);
+        try { renderStages(out.work); } catch (e) {}
+        renderScore();
+        document.getElementById('hint').textContent = 'تم. راجع القياسات وسجّل التسمية الصحيحة.';
+        runBtn.disabled = false;
+      })
+      .catch(function (e) {
+        window.fetch = origFetch; XMLHttpRequest.prototype.open = origOpen;
+        document.getElementById('hint').textContent = 'خطأ: ' + (e && e.message ? e.message : e);
+        runBtn.disabled = false;
+      });
+  });
+
+  function renderMetrics(out) {
+    var rows = ['<tr><th>الوحدة</th><th>الحالة</th><th>الثقة</th><th>القياسات</th></tr>'];
+    out.results.forEach(function (r) {
+      if (!r) return;
+      var cls = r.state === 'ok' ? 'ok' : (r.state === 'attention' ? 'att' : 'unk');
+      var m = r.metrics ? JSON.stringify(r.metrics) : '';
+      rows.push('<tr><td>' + esc(r.title) + '</td>' +
+        '<td><span class="tag ' + cls + '">' + esc(r.state) + '</span></td>' +
+        '<td>' + (r.confidence != null ? r.confidence.toFixed(2) : '-') + '</td>' +
+        '<td class="muted">' + esc(m) + '</td></tr>');
+    });
+    document.getElementById('metrics').innerHTML = rows.join('');
+  }
+
+  var KEY = 'sanad_mirror_selftest_v1';
+  function loadRecs() { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; } }
+  function saveRecs(r) { try { localStorage.setItem(KEY, JSON.stringify(r)); } catch (e) {} }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
+
+  document.getElementById('record').addEventListener('click', function () {
+    if (!lastOut) return;
+    var get = function (r) { for (var i = 0; i < lastOut.results.length; i++) if (lastOut.results[i].id === r) return lastOut.results[i]; return null; };
+    var hair = get('hair'), glasses = get('glasses'), spots = get('spots');
+    var beard = get('beard'), cover = get('headcover'), tuck = get('tuck'), shoes = get('shoes');
+    var recs = loadRecs();
+    recs.push({
+      hairLabel: document.getElementById('labHair').value,
+      hairState: hair ? hair.state : 'unknown',
+      glassesLabel: document.getElementById('labGlasses').value,
+      glassesState: glasses ? glasses.state : 'unknown',
+      stainLabel: document.getElementById('labStain').value,
+      stainState: spots ? spots.state : 'unknown',
+      beardLabel: document.getElementById('labBeard').value,
+      beardState: beard ? beard.state : 'unknown',
+      coverLabel: document.getElementById('labCover').value,
+      coverState: cover ? cover.state : 'unknown',
+      tuckLabel: document.getElementById('labTuck').value,
+      tuckState: tuck ? tuck.state : 'unknown',
+      shoesLabel: document.getElementById('labShoes').value,
+      shoesState: shoes ? shoes.state : 'unknown'
+    });
+    saveRecs(recs);
+    renderScore();
+  });
+
+  document.getElementById('clear').addEventListener('click', function () {
+    saveRecs([]);
+    renderScore();
+  });
+
+  function renderScore() {
+    var recs = loadRecs();
+    var html = '<tr><th>المعيار</th><th>الحالات المسجّلة</th><th>التطابق</th></tr>';
+    var defs = [
+      { key: 'hair', lab: 'الشعر', map: { neat: ['ok'], messy: ['attention'], unknown: ['unknown'] } },
+      { key: 'glasses', lab: 'النظارة', map: { straight: ['ok'], tilted: ['attention'], none: ['ok'] } },
+      { key: 'stain', lab: 'البقعة', map: { yes: ['attention'], no: ['ok'] } },
+      { key: 'beard', lab: 'اللحية', map: { neat: ['ok'], rough: ['attention'], none: ['ok'] } },
+      { key: 'cover', lab: 'غطاء الرأس', map: { clean: ['ok'], strands: ['attention'], none: ['attention'] } },
+      { key: 'tuck', lab: 'القميص', map: { tucked: ['ok'], untucked: ['attention'] } },
+      { key: 'shoes', lab: 'الحذاء', map: { same: ['ok'], different: ['attention'], none: ['unknown'] } }
+    ];
+    defs.forEach(function (d) {
+      var n = 0, agree = 0;
+      recs.forEach(function (r) {
+        var lab = r[d.key + 'Label'], st = r[d.key + 'State'];
+        if (!lab) return;
+        n++;
+        var want = d.map[lab] || [];
+        if (want.indexOf(st) >= 0) agree++;
+      });
+      html += '<tr><td>' + d.lab + '</td><td>' + n + '</td><td>' +
+        (n ? Math.round((agree / n) * 100) + ' بالمئة (' + agree + '/' + n + ')' : '—') + '</td></tr>';
+    });
+    document.getElementById('score').innerHTML = html;
+  }
+  renderScore();
+})();
+</script>
+</body>
+</html>

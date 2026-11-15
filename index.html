@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <title>سند V20.11 — المرآة الذكية: فحص المظهر داخل الهاتف</title>
+  <title>سند V20.12 — المرآة الذكية: فحص المظهر داخل الهاتف</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
@@ -198,7 +198,7 @@
   <main id="settings-screen" class="hidden p-4 flex flex-col min-h-screen max-w-xl mx-auto w-full" role="main" aria-labelledby="settings-heading">
     <div class="w-full flex flex-col gap-4 pb-10">
       <h1 id="settings-heading" tabindex="-1" class="text-2xl font-bold text-center text-blue-400">
-        سند V20.11 — المساعد البصري الشامل المجاني
+        سند V20.12 — المساعد البصري الشامل المجاني
       </h1>
       <p class="text-sm text-gray-200 leading-relaxed">
         مشروع إنساني مجاني بالكامل لفاقدي وضعاف البصر في مصر: يعمل <strong>بلا تكلفة أو بطاقة بنكية</strong>. يجمع بين الرؤية المحلية (المسافة بالخطوات، تحذير الاقتراب السريع، الكشاف التلقائي في الظلام، <strong>وطواط الظلام (تجريبي)</strong> لكشف الحوائط والأبواب المغلقة، قراءة النصوص وصلاحية الدواء، العملة المصرية، فحص البقع وتنسيق الملابس، و<strong>المرآة الذكية (V20.8): فحص الشعر واللحية والنظارة والحجاب والملابس والحذاء وألوان المظهر داخل الهاتف بلا إنترنت وبلا أي نموذج خارجي</strong>) + دعم الخادم المجاني ومفاتيح Gemini 3 و OpenRouter المجانية.
@@ -2019,24 +2019,19 @@ async function runGuidedMirrorSession() {
   isProcessing = true;
   hideRiskIndicator();
   vibrate(35); playAckTone();
-  const micReq = ensureMicPermission(); /* يظهر مربع الإذن فوراً مع الضغطة */
+  /* الإذن أولاً وبصراحة: يظهر المربع مع الضغطة نفسها، وله مهلة فلا يتجمد الفحص أبداً */
+  const micOk = await ensureMicPermission();
   var allResults = [], allDetails = [], stageLog = [];
   try {
     /* 1) ما الذي سيحدث */
     const plan = 'سأفحص مظهرك في خمس لقطات: الوجه، ثم الجزء العلوي، ثم الجزء السفلي، ثم جسمك كاملاً، ثم منظر الظهر. سأخبرك في كل خطوة إن كان الإطار غير مناسب، ولن أبدأ التصوير حتى يصبح صحيحاً.';
-    let micState = '';
-    try { micState = (await navigator.permissions.query({ name: 'microphone' })).state; } catch (e) {}
-    if (micState === 'prompt') {
-      const adv = 'سيظهر على الشاشة طلب إذن الميكروفون. اختر «السماح» لأتمكن من سماع إجاباتك.';
-      updateStatus(adv); await speakWait(adv);
-    }
     updateStatus(plan);
     await speakWait(plan);
     /* 2) الخصوصية */
     await ensurePrivacyStep();
     /* 3) الضبط الصوتي للملف الشخصي (مرة واحدة) */
     if (!mirrorSetupDone() || !mirrorProfileComplete()) {
-      if (!(await micReq)) {
+      if (!micOk) {
         const em = listenErrorMessage(lastListenError) || 'لا أستطيع استخدام الميكروفون.';
         updateStatus(em); await speakWait(em + ' سأكمل الفحص دون ضبط ملف المظهر.');
       } else
@@ -2168,7 +2163,7 @@ function applyMirrorProfileForm() {
 }
 /* حفظ فوري عند تغيير أي حقل (بلا الضغط على «حفظ») */
 ['mirror-gender', 'mirror-cover', 'mirror-forehead', 'mirror-glasses', 'mirror-beard'].forEach(function (id) {
-  const el = document.getElementByById(id);
+  const el = document.getElementById(id);
   if (el) el.addEventListener('change', function () { applyMirrorProfileForm(); saveMirrorProfile(true); });
 });
 loadMirrorProfile();
@@ -3420,29 +3415,85 @@ function parseVoiceCommand(raw) {
   return { type: 'question', question: String(raw || '').trim() };
 }
 
-function activateVoiceCommands() {
-  if (isProcessing) return;
+let voiceCmdToken = 0, voiceCmdStarting = false;
+async function activateVoiceCommands() {
+  /* ضغطة ثانية أثناء التجهيز/الاستماع = إيقاف الاستماع */
+  if (voiceCmdStarting || (isListening && !mirrorSetupState && !isProcessing)) {
+    voiceCmdToken++; voiceCmdStarting = false; stopVoiceRecognition(); vibrate(30);
+    updateStatus('أوقفت الاستماع.'); speak('أوقفت الاستماع.'); return;
+  }
+  if (isProcessing || mirrorSetupState) {
+    vibrate([120, 60, 120]);
+    const bz = mirrorSetupState ? 'أنا أسألك الآن. أجب بعد النغمة.' : 'أنا أعمل على مهمة الآن. انتظر قليلاً ثم اضغط من جديد.';
+    updateStatus(bz); speak(bz); return;
+  }
   const R = getSpeechRecognitionConstructor();
-  if (!R) { const m = 'الأوامر الصوتية غير مدعومة هنا؛ استخدم الأزرار.'; updateStatus(m); speak(m); return; }
+  if (!R) { vibrate([300, 100, 300]); const m = 'الأوامر الصوتية غير مدعومة هنا؛ استخدم الأزرار.'; updateStatus(m); speak(m); return; }
+  const myToken = ++voiceCmdToken; voiceCmdStarting = true;
   stopSpeaking(); stopVoiceRecognition();
-  setTimeout(() => {
-    try {
-      const inst = new R(); recognition = inst;
-      inst.lang = 'ar-EG'; inst.continuous = false; inst.interimResults = false; inst.maxAlternatives = 3;
-      let got = false, err = false;
-      inst.onstart = () => { isListening = true; updateStatus('أستمع إليك... اسأل ما تريد.'); vibrate([35, 65, 35]); playAckTone(); };
-      inst.onresult = ev => {
-        got = true; isListening = false;
-        const txt = ev.results?.[0]?.[0]?.transcript || '';
-        try { inst.stop(); } catch (e) {}
-        if (mirrorSetupState) { handleMirrorSetupAnswer(txt); return; }
-        handleVoiceCommand(parseVoiceCommand(txt));
-      };
-      inst.onerror = ev => { err = true; isListening = false; if (ev.error !== 'aborted') { updateStatus('لم أسمع الأمر بوضوح.'); speak('لم أسمع الأمر بوضوح.'); } };
-      inst.onend = () => { isListening = false; if (!got && !err) updateStatus('انتهى الاستماع.'); if (recognition === inst) recognition = null; };
-      inst.start();
-    } catch (e) { isListening = false; }
-  }, 180);
+  vibrate(30);
+  try {
+    /* 1) الإذن صراحةً في كل مرة (سريع إن كان ممنوحاً؛ يُظهر المربع إن لم يكن) */
+    lastListenError = '';
+    const ok = await ensureMicPermission();
+    if (myToken !== voiceCmdToken) return;
+    if (!ok) {
+      voiceCmdStarting = false;
+      const em = listenErrorMessage(lastListenError) || 'لا أستطيع استخدام الميكروفون.';
+      updateStatus(em); speak(em); return;
+    }
+    /* 2) الإشارة (نغمة + اهتزاز) ثم الاستماع */
+    await micReadyCue();
+    await sleep(250);
+    if (myToken !== voiceCmdToken) return;
+    const inst = new R(); recognition = inst;
+    inst.lang = 'ar-EG'; inst.continuous = false; inst.interimResults = false; inst.maxAlternatives = 3;
+    let got = false, err = false, started = false, startTmr = null, maxTmr = null;
+    const clearTimers = () => { if (startTmr) clearTimeout(startTmr); if (maxTmr) clearTimeout(maxTmr); startTmr = maxTmr = null; };
+    inst.onstart = () => {
+      started = true; voiceCmdStarting = false; isListening = true; clearTimers();
+      updateStatus('أستمع إليك... اسأل ما تريد.'); vibrate(35);
+      maxTmr = setTimeout(() => { if (recognition === inst) { try { inst.stop(); } catch (e) {} } }, 15000);
+    };
+    inst.onresult = ev => {
+      got = true; isListening = false; clearTimers(); micEndCue();
+      const txt = ev.results?.[0]?.[0]?.transcript || '';
+      try { inst.stop(); } catch (e) {}
+      const cmd = parseVoiceCommand(txt);
+      if (!cmd) { updateStatus('لم أسمع شيئاً.'); speak('لم أسمع شيئاً. اضغط وتكلّم بعد النغمة.'); return; }
+      handleVoiceCommand(cmd);
+    };
+    inst.onerror = ev => {
+      err = true; isListening = false; voiceCmdStarting = false; clearTimers();
+      const code = (ev && ev.error) || 'error';
+      if (code === 'aborted') return;
+      if (code === 'not-allowed' || code === 'service-not-allowed') micGrantedThisSession = false;
+      let m;
+      if (code === 'no-speech') m = 'لم أسمع شيئاً. اضغط وتكلّم بعد النغمة.';
+      else { vibrate([300, 100, 300]); m = listenErrorMessage(code) || 'لم أسمع الأمر بوضوح.'; }
+      updateStatus(m); speak(m);
+    };
+    inst.onend = () => {
+      isListening = false; voiceCmdStarting = false; clearTimers();
+      if (recognition === inst) recognition = null;
+      if (!got && !err) {
+        if (started) { micEndCue(); updateStatus('انتهى الاستماع دون أمر.'); }
+        else { vibrate([300, 100, 300]); const m = listenErrorMessage('start-timeout'); updateStatus(m); speak(m); }
+      }
+    };
+    inst.start();
+    /* إن لم يبدأ الاستماع فعلياً خلال 5 ثوانٍ فالميكروفون عالق: نُعلم المستخدم ولا نتجمّد */
+    startTmr = setTimeout(() => {
+      if (started || recognition !== inst) return;
+      voiceCmdStarting = false; err = true; vibrate([300, 100, 300]);
+      try { inst.onend = null; inst.onerror = null; inst.abort(); } catch (e) {}
+      recognition = null; isListening = false;
+      const m = listenErrorMessage('start-timeout'); updateStatus(m); speak(m);
+    }, 5000);
+  } catch (e) {
+    voiceCmdStarting = false; isListening = false; vibrate([300, 100, 300]);
+    const m = listenErrorMessage('start-failed'); updateStatus(m); speak(m);
+  }
 }
 
 async function findObjectLive(targetRaw) {
@@ -3792,71 +3843,135 @@ function speakWait(text) {
   });
 }
 let lastListenError = '';
-/* طلب إذن الميكروفون صراحةً (يظهر مربع الإذن)، لأن التعرف الصوتي وحده قد يفشل بصمت
-   دون أن يطلب الإذن. يُستدعى من الضغطة نفسها قبل أي انتظار. */
-let micPermPromise = null;
+/* ============================ الميكروفون: الإذن + الإشارات + المهلات ============================
+   أسباب التجمّد القديمة:
+   1) getUserMedia كان ينتظر بلا مهلة؛ إن لم يظهر مربع الإذن بقي التطبيق معلّقاً وبقي isProcessing=true.
+   2) الوعد المخزَّن micPermPromise كان يبقى للأبد (حتى لو سُحب الإذن لاحقاً أو علق الطلب).
+   3) ctx.resume() قد لا يعود أبداً إن منع المتصفح الصوت فيتجمّد الحوار.
+   4) زر «اسأل/أمر» لم يكن يطلب الإذن صراحةً، ويصمت عند كل خطأ.
+   الآن: كل انتظار له مهلة، ويُقرأ حال الإذن الفعلي في كل مرة، وكل نغمة معها اهتزاز. */
+const MIC_PERMISSION_WAIT_MS = 30000;
+let micPermInflight = null, micGrantedThisSession = false;
+function raceTimeout(p, ms, fallback) {
+  return new Promise(res => {
+    let d = false;
+    const t = setTimeout(() => { if (!d) { d = true; res(fallback); } }, ms);
+    Promise.resolve(p).then(v => { if (!d) { d = true; clearTimeout(t); res(v); } },
+                            () => { if (!d) { d = true; clearTimeout(t); res(fallback); } });
+  });
+}
+async function getMicPermState() {
+  try {
+    if (!navigator.permissions || !navigator.permissions.query) return 'unknown';
+    return await raceTimeout(navigator.permissions.query({ name: 'microphone' }).then(function (st) { return st.state; }), 600, 'unknown');
+  } catch (e) { return 'unknown'; }
+}
+/* يطلب إذن الميكروفون صراحةً (يظهر مربع الإذن) ويعيد true/false دون أن يتجمد أبداً. */
 function ensureMicPermission() {
-  if (micPermPromise) return micPermPromise;
-  micPermPromise = (async () => {
+  if (micPermInflight) return micPermInflight;
+  micPermInflight = (async () => {
     try {
+      const state = await getMicPermState();
+      if (state === 'granted') { micGrantedThisSession = true; return true; }
+      if (state === 'denied') { micGrantedThisSession = false; lastListenError = 'not-allowed'; vibrate([300, 100, 300]); return false; }
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return true; /* لا نستطيع الفحص؛ نجرّب الاستماع مباشرة */
-      const st = await navigator.mediaDevices.getUserMedia({ audio: true });
-      st.getTracks().forEach(t => t.stop());
-      return true;
-    } catch (e) {
-      lastListenError = (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) ? 'not-allowed' : 'audio-capture';
-      micPermPromise = null; /* نسمح بإعادة الطلب في المرة القادمة */
+      if (state === 'unknown' && micGrantedThisSession) return true; /* متصفح بلا permissions API وقد سمح سابقاً */
+      /* سيظهر مربع الإذن الآن: اهتزاز + تنبيه صوتي حتى لا يرتبك المستخدم */
+      vibrate([80, 60, 80]);
+      try { speak('سيظهر طلب إذن الميكروفون. اختر السماح.', true); } catch (e) {}
+      const pending = navigator.mediaDevices.getUserMedia({ audio: true });
+      /* إن وصل الرد متأخراً (بعد المهلة) نغلق التيار حتى لا يبقى الميكروفون مفتوحاً */
+      pending.then(function (st) { try { st.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {} }, function () {});
+      const outcome = await raceTimeout(pending.then(function () { return 'ok'; }, function (e) { return e || 'error'; }), MIC_PERMISSION_WAIT_MS, 'timeout');
+      if (outcome === 'ok') { micGrantedThisSession = true; await sleep(350); /* مهلة لتحرير الميكروفون قبل التعرف الصوتي */ return true; }
+      micGrantedThisSession = false;
+      if (outcome === 'timeout') lastListenError = 'perm-timeout';
+      else {
+        const nm = outcome && outcome.name;
+        lastListenError = (nm === 'NotAllowedError' || nm === 'SecurityError' || nm === 'PermissionDeniedError') ? 'not-allowed' : 'audio-capture';
+      }
       vibrate([300, 100, 300]);
       return false;
-    }
+    } catch (e) {
+      lastListenError = 'audio-capture'; vibrate([300, 100, 300]); return false;
+    } finally { micPermInflight = null; }
   })();
-  return micPermPromise;
+  return micPermInflight;
 }
-/* إشارة «تكلّم الآن»: نغمة + اهتزاز دائماً. إن تعذّر تشغيل النغمة (المتصفح يمنع الصوت
-   قبل لمسة المستخدم) يهتز الهاتف اهتزازاً أطول بدلاً منها، فلا يبقى الكفيف بلا إشارة. */
+/* إشارة «تكلّم الآن»: نغمة + اهتزاز معاً دائماً. إن تعذّر تشغيل النغمة يهتز الهاتف اهتزازاً أطول بدلاً منها. */
 async function micReadyCue() {
-  vibrate([60, 60, 60]);
   let toneOk = false;
   try {
     const ctx = ensureAudioContext();
     if (ctx) {
-      if (ctx.state !== 'running') { try { await ctx.resume(); } catch (e) {} }
+      if (ctx.state !== 'running') await raceTimeout(ctx.resume(), 700, null); /* لا ننتظر للأبد */
       if (ctx.state === 'running') { playMicReadyTone(); toneOk = true; }
     }
   } catch (e) {}
   if (!toneOk) vibrate([200, 80, 200, 80, 200]);
   return toneOk;
 }
+/* إشارة «انتهى الاستماع»: نغمة هابطة قصيرة + اهتزازة قصيرة */
+function micEndCue() {
+  vibrate(45);
+  try {
+    const ctx = audioContext; if (!ctx || ctx.state !== 'running') return;
+    [880, 587].forEach(function (f, i) {
+      const o = ctx.createOscillator(), g = ctx.createGain(), t0 = ctx.currentTime + i * 0.09;
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.001, t0); g.gain.exponentialRampToValueAtTime(0.14, t0 + 0.015); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.08);
+      o.connect(g); g.connect(ctx.destination); o.start(t0); o.stop(t0 + 0.09);
+    });
+  } catch (e) {}
+}
 function listenOnce(ms = 8000) {
   return new Promise(async res => {
     lastListenError = '';
     const R = getSpeechRecognitionConstructor();
     if (!R) { lastListenError = 'unsupported'; vibrate([300, 100, 300]); const t = window.prompt('اكتب الإجابة:'); return res(t ? t.trim() : ''); }
-    let done = false, inst = null, tmr = null;
-    const fin = t => { if (done) return; done = true; if (tmr) clearTimeout(tmr); isListening = false; try { inst && inst.stop(); } catch (e) {} res(t || ''); };
+    let done = false, inst = null, tmr = null, startTmr = null, started = false;
+    const fin = t => {
+      if (done) return; done = true;
+      if (tmr) clearTimeout(tmr); if (startTmr) clearTimeout(startTmr);
+      isListening = false; try { inst && inst.stop(); } catch (e) {}
+      if (started) micEndCue();
+      res(t || '');
+    };
     stopVoiceRecognition();
-    /* الإشارة أولاً (قبل تشغيل الميكروفون حتى لا تلتقطها الميكروفون)، ثم نبدأ الاستماع */
+    /* 1) الإذن صراحةً (يعيد false مع سبب في lastListenError دون تجمّد) */
+    if (!(await ensureMicPermission())) return fin('');
+    /* 2) الإشارة (نغمة + اهتزاز) قبل تشغيل الميكروفون حتى لا يلتقطها */
     await micReadyCue();
     await sleep(450);
     try {
       inst = new R(); inst.lang = 'ar-EG'; inst.continuous = false; inst.interimResults = false;
       inst.onresult = ev => fin(ev.results?.[0]?.[0]?.transcript || '');
-      inst.onerror = ev => { lastListenError = (ev && ev.error) || 'error'; if (lastListenError !== 'no-speech') vibrate([300, 100, 300]); fin(''); };
+      inst.onerror = ev => {
+        lastListenError = (ev && ev.error) || 'error';
+        if (lastListenError === 'not-allowed' || lastListenError === 'service-not-allowed') micGrantedThisSession = false;
+        if (lastListenError !== 'no-speech') vibrate([300, 100, 300]);
+        fin('');
+      };
       inst.onend = () => fin('');
-      inst.onstart = () => { isListening = true; vibrate(40); };
+      inst.onstart = () => { started = true; isListening = true; if (startTmr) { clearTimeout(startTmr); startTmr = null; } vibrate(40); };
       inst.start();
+      /* إن لم يبدأ الاستماع فعلياً خلال 5 ثوانٍ فالميكروفون عالق: لا نترك الحوار معلّقاً */
+      startTmr = setTimeout(() => { if (!started && !done) { lastListenError = 'start-timeout'; vibrate([300, 100, 300]); try { inst.abort(); } catch (e) {} fin(''); } }, 5000);
       tmr = setTimeout(() => { if (!lastListenError) lastListenError = 'no-speech'; fin(''); }, ms);
     } catch (e) { lastListenError = 'start-failed'; vibrate([300, 100, 300]); fin(''); }
   });
 }
 function listenErrorMessage(code) {
-  if (code === 'not-allowed' || code === 'service-not-allowed') return 'لا أستطيع استخدام الميكروفون. اسمح للموقع بالميكروفون من إعدادات المتصفح.';
+  if (code === 'not-allowed' || code === 'service-not-allowed') return 'الميكروفون غير مسموح لهذا الموقع. افتح إعدادات المتصفح، ثم صلاحيات الموقع، واسمح بالميكروفون. وتأكد أيضاً من إعدادات الهاتف.';
+  if (code === 'perm-timeout') return 'لم يصلني ردك على طلب إذن الميكروفون. اضغط الزر مرة أخرى واختر السماح.';
+  if (code === 'start-timeout' || code === 'start-failed') return 'تعذّر تشغيل الميكروفون. أغلق أي تطبيق آخر يستخدمه ثم حاول مرة أخرى.';
   if (code === 'network') return 'خدمة التعرف على الصوت في متصفحك تحتاج اتصالاً بالإنترنت الآن.';
   if (code === 'audio-capture') return 'لم أجد ميكروفوناً متاحاً. أغلق أي تطبيق آخر يستخدمه.';
   if (code === 'unsupported') return 'متصفحك لا يدعم التعرف على الصوت.';
   return '';
 }
 function playMicReadyTone() {
+  vibrate([90, 50, 90]); /* كل نغمة قبل الميكروفون يصحبها اهتزاز */
   const ctx = ensureAudioContext(); if (!ctx) return;
   try {
     [660, 990].forEach((f, i) => {

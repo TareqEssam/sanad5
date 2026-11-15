@@ -198,7 +198,7 @@
   <main id="settings-screen" class="hidden p-4 flex flex-col min-h-screen max-w-xl mx-auto w-full" role="main" aria-labelledby="settings-heading">
     <div class="w-full flex flex-col gap-4 pb-10">
       <h1 id="settings-heading" tabindex="-1" class="text-2xl font-bold text-center text-blue-400">
-        سند V20.8 — المساعد البصري الشامل المجاني
+        سند V20.11 — المساعد البصري الشامل المجاني
       </h1>
       <p class="text-sm text-gray-200 leading-relaxed">
         مشروع إنساني مجاني بالكامل لفاقدي وضعاف البصر في مصر: يعمل <strong>بلا تكلفة أو بطاقة بنكية</strong>. يجمع بين الرؤية المحلية (المسافة بالخطوات، تحذير الاقتراب السريع، الكشاف التلقائي في الظلام، <strong>وطواط الظلام (تجريبي)</strong> لكشف الحوائط والأبواب المغلقة، قراءة النصوص وصلاحية الدواء، العملة المصرية، فحص البقع وتنسيق الملابس، و<strong>المرآة الذكية (V20.8): فحص الشعر واللحية والنظارة والحجاب والملابس والحذاء وألوان المظهر داخل الهاتف بلا إنترنت وبلا أي نموذج خارجي</strong>) + دعم الخادم المجاني ومفاتيح Gemini 3 و OpenRouter المجانية.
@@ -1882,7 +1882,11 @@ async function startMirrorSetupByVoice() {
         updateStatus(q.q);
         await speakWait(prompt);
         const heard = await listenOnce(8000);
-        if (!heard) continue;
+        if (!heard) {
+          const em = listenErrorMessage(lastListenError);
+          if (em) { updateStatus(em); await speakWait(em + ' يمكنك ضبط ملف المظهر لاحقاً من الإعدادات.'); return; }
+          continue;
+        }
         val = matchSetupAnswer(heard, q.options);
       }
       if (!val) {
@@ -3768,19 +3772,50 @@ function speakWait(text) {
     } catch (e) { assistantSpeaking = false; res(); }
   });
 }
+let lastListenError = '';
+/* إشارة «تكلّم الآن»: نغمة + اهتزاز دائماً. إن تعذّر تشغيل النغمة (المتصفح يمنع الصوت
+   قبل لمسة المستخدم) يهتز الهاتف اهتزازاً أطول بدلاً منها، فلا يبقى الكفيف بلا إشارة. */
+async function micReadyCue() {
+  vibrate([60, 60, 60]);
+  let toneOk = false;
+  try {
+    const ctx = ensureAudioContext();
+    if (ctx) {
+      if (ctx.state !== 'running') { try { await ctx.resume(); } catch (e) {} }
+      if (ctx.state === 'running') { playMicReadyTone(); toneOk = true; }
+    }
+  } catch (e) {}
+  if (!toneOk) vibrate([200, 80, 200, 80, 200]);
+  return toneOk;
+}
 function listenOnce(ms = 8000) {
   return new Promise(async res => {
+    lastListenError = '';
     const R = getSpeechRecognitionConstructor();
-    if (!R) { const t = window.prompt('اكتب الإجابة:'); return res(t ? t.trim() : ''); }
-    let done = false; const fin = t => { if (done) return; done = true; isListening = false; try { inst.stop(); } catch (e) {} res(t || ''); };
-    const inst = new R(); inst.lang = 'ar-EG'; inst.continuous = false; inst.interimResults = false;
-    inst.onresult = ev => fin(ev.results?.[0]?.[0]?.transcript || ''); inst.onerror = () => fin(''); inst.onend = () => fin('');
-    // النغمة تُعزف عند بدء الميكروفون فعلياً (وليس قبله) حتى تعني "تكلّم الآن"
-    inst.onstart = () => { isListening = true; playMicReadyTone(); vibrate([40, 50, 40]); };
+    if (!R) { lastListenError = 'unsupported'; vibrate([300, 100, 300]); const t = window.prompt('اكتب الإجابة:'); return res(t ? t.trim() : ''); }
+    let done = false, inst = null, tmr = null;
+    const fin = t => { if (done) return; done = true; if (tmr) clearTimeout(tmr); isListening = false; try { inst && inst.stop(); } catch (e) {} res(t || ''); };
     stopVoiceRecognition();
-    await sleep(350);
-    try { inst.start(); } catch (e) { fin(''); } setTimeout(() => fin(''), ms);
+    /* الإشارة أولاً (قبل تشغيل الميكروفون حتى لا تلتقطها الميكروفون)، ثم نبدأ الاستماع */
+    await micReadyCue();
+    await sleep(450);
+    try {
+      inst = new R(); inst.lang = 'ar-EG'; inst.continuous = false; inst.interimResults = false;
+      inst.onresult = ev => fin(ev.results?.[0]?.[0]?.transcript || '');
+      inst.onerror = ev => { lastListenError = (ev && ev.error) || 'error'; if (lastListenError !== 'no-speech') vibrate([300, 100, 300]); fin(''); };
+      inst.onend = () => fin('');
+      inst.onstart = () => { isListening = true; vibrate(40); };
+      inst.start();
+      tmr = setTimeout(() => { if (!lastListenError) lastListenError = 'no-speech'; fin(''); }, ms);
+    } catch (e) { lastListenError = 'start-failed'; vibrate([300, 100, 300]); fin(''); }
   });
+}
+function listenErrorMessage(code) {
+  if (code === 'not-allowed' || code === 'service-not-allowed') return 'لا أستطيع استخدام الميكروفون. اسمح للموقع بالميكروفون من إعدادات المتصفح.';
+  if (code === 'network') return 'خدمة التعرف على الصوت في متصفحك تحتاج اتصالاً بالإنترنت الآن.';
+  if (code === 'audio-capture') return 'لم أجد ميكروفوناً متاحاً. أغلق أي تطبيق آخر يستخدمه.';
+  if (code === 'unsupported') return 'متصفحك لا يدعم التعرف على الصوت.';
+  return '';
 }
 function playMicReadyTone() {
   const ctx = ensureAudioContext(); if (!ctx) return;

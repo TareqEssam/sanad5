@@ -88,6 +88,9 @@
       background: rgba(31, 41, 55, .78);
     }
     .settings-action { width: 100%; border-radius: 12px; padding: 13px; font-weight: 700; }
+    #field-recorder-panel { position:absolute; z-index:35; top:62px; left:8px; right:8px; max-width:560px; margin-inline:auto; background:rgba(2,6,23,.97); border:2px solid #0d9488; border-radius:16px; padding:10px; box-shadow:0 8px 28px rgba(0,0,0,.55); }
+    #field-recorder-panel button { min-height:44px; padding:8px; border-radius:10px; font-weight:800; }
+    #field-recorder-panel button:disabled { opacity:.45; }
     .risk-danger { color: #fecaca; border-color: #b91c1c; background: rgba(127, 29, 29, .72); }
     .risk-caution { color: #fde68a; border-color: #b45309; background: rgba(120, 53, 15, .56); }
     .risk-none { color: #bfdbfe; border-color: #1d4ed8; background: rgba(30, 58, 138, .48); }
@@ -222,6 +225,34 @@
         <span aria-hidden="true">🔊 </span>استمع لشرح الاستخدام والأمان
       </button>
 
+      <section class="settings-step border-teal-700" aria-labelledby="field-recorder-heading">
+        <h2 id="field-recorder-heading" class="text-lg font-bold text-teal-200 mb-2">🧪 المشاركة في اختبار سند وتسجيل البيانات</h2>
+        <p class="text-sm text-gray-200 leading-relaxed mb-2">هذا الوضع مخصص للمرافق المبصر. يسجل قراءات الرصد والحساسات والتنبيهات فقط، ولا يسجل صورًا أو فيديو أو صوتًا. البيانات تبقى على هذا الهاتف ولا تُرسل تلقائيًا.</p>
+        <label class="block text-sm mb-2">رمز مشارك غير شخصي (مثال: P03)
+          <input id="field-participant-code" maxlength="20" autocomplete="off" placeholder="اكتب رمزًا مثل P03" class="w-full mt-1 p-3 rounded-lg bg-gray-900 border border-gray-600 text-white" style="min-height:48px; user-select:text">
+        </label>
+        <label class="block text-sm mb-2">اختر المشهد الذي ستختبره
+          <select id="field-scene-select" class="w-full mt-1 p-3 rounded-lg bg-gray-900 border border-gray-600 text-white" style="min-height:48px">
+            <option value="approaching_vehicle">سيارة متحركة تقترب</option>
+            <option value="parked_vehicle">سيارة متوقفة وأنت تقترب منها</option>
+            <option value="crowd">زحام أشخاص</option>
+            <option value="stairs">سلم أو درجات</option>
+            <option value="sidewalk_end">نهاية رصيف أو حافة</option>
+            <option value="wall">حائط أو عائق ثابت قريب</option>
+            <option value="low_light">إضاءة ضعيفة أو ظلام</option>
+            <option value="mixed">مشهد مختلط</option>
+          </select>
+        </label>
+        <div id="field-scene-instructions" class="rounded-lg bg-slate-900 border border-slate-700 p-3 text-sm leading-relaxed" aria-live="polite">
+          <strong class="text-teal-200">قبل البدء</strong>
+          <p>اختر المشهد، اقرأ تعليماته، ثم ابدأ. نفّذ التجربة في مكان آمن وبوجود مرافق؛ لا تقترب من السيارات المتحركة ولا تختبر على حافة طريق أو درج خطر.</p>
+        </div>
+        <label class="flex items-start gap-2 text-xs text-gray-300 mt-3"><input id="field-consent-check" type="checkbox"><span>أفهم أن التسجيل يتضمن بيانات تقنية عن المشهد والجهاز، ولن أُدخل أسماء أو بيانات شخصية، وسأجري الاختبار في مكان آمن.</span></label>
+        <button id="field-start-button" type="button" onclick="startFieldRecording()" class="settings-action bg-teal-700 hover:bg-teal-600 text-white mt-3">▶ ابدأ جلسة التسجيل الموجهة</button>
+        <button type="button" onclick="exportSavedFieldSessions()" class="settings-action bg-slate-700 hover:bg-slate-600 text-white mt-2">⬇ تصدير التسجيلات المحفوظة على هذا الهاتف</button>
+        <p id="field-recorder-settings-status" class="text-xs text-teal-200 mt-2" role="status"></p>
+      </section>
+
       <section class="settings-step" aria-labelledby="local-tools-heading">
         <h2 id="local-tools-heading" class="text-lg font-bold text-emerald-300 mb-3">1. قدرات الحماية المحلية + معايرة وطواط الظلام</h2>
         <div class="flex flex-col gap-3 text-sm">
@@ -273,6 +304,14 @@
             <span>
               <strong class="block text-base text-white">تعرّف تلقائي على المخاطر العامة من الحزم أثناء الرصد</strong>
               <span class="text-gray-300">يقارن ما أمامك بحزم المخاطر المثبتة دون إبطاء التطبيق، وينبه عند الاشتباه. تخمين بصري، فلا يغني عن العصا. يحتاج أن تكون جهّزت نموذج البصمات مرة (بـ«ما هذا؟» أو «علّمني»).</span>
+            </span>
+          </label>
+
+          <label class="flex items-start gap-3 rounded-xl border border-gray-700 p-3 cursor-pointer">
+            <input id="live-arch-checkbox" type="checkbox" checked>
+            <span>
+              <strong class="block text-base text-white">تعرّف تلقائي على المكان أثناء الرصد: سلالم وأبواب وشبابيك</strong>
+              <span class="text-gray-300">ينبّه للسلالم والمياه والحائط القريب والأعمدة، ويذكر الأبواب والشبابيك بصوت هادئ. يحتاج أن تكون نزّلت نموذج المكان (SegFormer) من الإعدادات مرة. تخمين بصري، فلا يغني عن العصا.</span>
             </span>
           </label>
 
@@ -483,6 +522,20 @@
       <button id="mode-grooming" type="button" aria-pressed="false" onclick="setLifeMode('grooming')" data-speak-label="وضع المرآة: الشعر والوجه">💇 المرآة</button>
     </div>
 
+    <section id="field-recorder-panel" class="hidden" aria-label="لوحة تسجيل الاختبار الميداني">
+      <div class="flex items-center justify-between gap-2 mb-2">
+        <strong class="text-teal-200">● تسجيل اختبار سند</strong><span id="field-recorder-elapsed" class="text-xs text-gray-300">00:00</span>
+      </div>
+      <p id="field-recorder-live-instruction" class="text-sm leading-relaxed mb-2">اتبع تعليمات المشهد.</p>
+      <div class="grid grid-cols-2 gap-2">
+        <button type="button" onclick="markFieldEvent('false_alarm')" class="bg-amber-800 text-white">إنذار غير صحيح</button>
+        <button type="button" onclick="markFieldEvent('missed_hazard')" class="bg-red-800 text-white">خطر لم يكتشفه</button>
+        <button type="button" onclick="markFieldEvent('real_approach')" class="bg-blue-800 text-white">اقتراب حقيقي</button>
+        <button type="button" onclick="markFieldEvent('scene_note')" class="bg-slate-700 text-white">تسجيل ملاحظة</button>
+      </div>
+      <button type="button" onclick="stopAndExportFieldRecording()" class="w-full bg-teal-700 text-white mt-2">■ إنهاء الجلسة وحفظ الملف</button>
+    </section>
+
     <div class="relative flex-1 min-h-0">
       <video id="camera-preview" autoplay playsinline muted aria-hidden="true"
              class="absolute top-2 right-2 w-14 h-14 object-cover rounded-lg border border-gray-700 opacity-60 pointer-events-none z-10"></video>
@@ -630,7 +683,7 @@ const LS_SONAR_CAL = 's3aed_sonar_open_air_profile';
 const LS_OCR_READY_PREFIX = 'sanad_ocr_pack_ready_v1_';
 const LS_SEG_READY = 'sanad_segformer_ready_v1';
 const LS_DEPTH_READY = 'sanad_depth_ready_v1';
-const LS_DINO_READY = 'sanad_dino_ready_v1', LS_LIVE_HAZARD = 'sanad_live_hazard_v1', LS_LIVE_ITEMS = 'sanad_live_items_v1';
+const LS_DINO_READY = 'sanad_dino_ready_v1', LS_LIVE_HAZARD = 'sanad_live_hazard_v1', LS_LIVE_ITEMS = 'sanad_live_items_v1', LS_LIVE_ARCH = 'sanad_live_arch_v1';
 
 const PROVIDERS = {
   gemini: {
@@ -693,13 +746,36 @@ let darkStreak = 0, brightStreak = 0, lastLensWarnTime = 0, lastTiltWarnTime = 0
 
 let objectModel = null, objectModelLoading = null, isScanningFrame = false, liveMonitorTimer = null;
 let lastHazardAlertKey = '', lastHazardAlertTime = 0, prevCenterThreat = null;
+// حالة كاشف الأجسام: إعادة المحاولة بعد فشل التحميل، وعدّاد أخطاء الرصد (لا فشل صامت)
+let lastCocoLoadAttempt = 0, cocoLoadFailNotified = false, cocoDetectFails = 0, lastCocoFailNotice = 0;
+let cocoLastDetectMs = null, cocoEmaDetectMs = 0, cocoDetectSamples = 0, cocoLastGapMs = null, cocoEmaGapMs = 0, cocoLastDetectAt = 0;
+const COCO_RETRY_MS = 20000, COCO_FAIL_NOTICE_MS = 60000, COCO_MAX_BOXES = 10;
+// أولوية الجملة المنطوقة حالياً (2 = تنبيه اقتراب عاجل). تُضبط لكل مقطع عند بدء نطقه.
+let speechPriority = 0;
+function urgentSpeechActive() { return assistantSpeaking && speechPriority >= 2; }
 let ocrWorker = null, ocrWorkerLang = '', ocrInitPromise = null;
 // عامل عربي مستقل للمستندات العربية الخالصة؛ يعيد استخدام ملف ara المحفوظ في IndexedDB.
 let ocrArabicWorker = null, ocrArabicInitPromise = null;
 let segPipeline = null, segLoading = false, segLoadPromise = null;
+let segReady = false;   // نموذج المكان جاهز داخل العامل (يُقرأ مبكراً من دوال حالة الأزرار أثناء التحميل)
 let depthPipeline = null, depthLoading = false, depthLoadPromise = null;
 let transformersModulePromise = null;
 let phonePitchBeta = null, savedOutfitColor = null;
+
+// مسجل الاختبارات الميدانية: بيانات وصفية فقط، بلا صور/فيديو/صوت وبلا رفع شبكي.
+const FIELD_DB_NAME = 'sanad_field_trials_v1';
+let fieldRecording = null, fieldAutosaveTimer = null, fieldStartedAt = 0, fieldLastDetectAt = 0, fieldLastMotionAt = 0, fieldLastOrientationAt = 0, fieldMotionAttached = false, fieldMotionPermission = 'not-requested';
+const FIELD_SCENES = {
+  approaching_vehicle: {title:'سيارة متحركة تقترب', instructions:'قف أنت والمرافق في مكان آمن بعيدًا عن مسار السيارات. لا تقف في الطريق ولا تطلب من سائق الاقتراب عمدًا. سجّل مرور سيارة تتحرك في شارع آمن من مسافة مناسبة. كرر مرتين مع اختلاف اتجاه المرور إن أمكن.'},
+  parked_vehicle: {title:'سيارة متوقفة وأنت تقترب منها', instructions:'في موقف سيارات خالٍ وآمن، امشِ ببطء نحو سيارة متوقفة مع المرافق. لا تلمس السيارة ولا تقترب من مسار حركة المركبات. كرر مرتين من مسافتين أو زاويتين مختلفتين.'},
+  crowd: {title:'زحام أشخاص', instructions:'اختر رصيفًا واسعًا أو مكانًا عامًا آمنًا به حركة مشاة. تحرك ببطء مع المرافق، ولا تزاحم أحدًا. سجّل مرور أشخاص من الأمام والجانبين. كرر مرتين.'},
+  stairs: {title:'سلم أو درجات', instructions:'لا تصعد أو تنزل اعتمادًا على سند. قف مع المرافق عند بداية سلم آمن، ووجّه الهاتف نحو الدرج من موضع ثابت. سجّل منظر الدرج ثم كرر من زاوية آمنة أخرى. لا تختبر حافة الدرج دون حماية.'},
+  sidewalk_end: {title:'نهاية رصيف أو حافة', instructions:'لا تقترب من حافة شارع أو تسقط قدمك عنها. قف خلف الحافة بمسافة آمنة مع المرافق، وصوّر المشهد بالرصد الحي فقط دون حفظ صورة. كرر من موضعين آمنين.'},
+  wall: {title:'حائط أو عائق ثابت قريب', instructions:'في ممر داخلي آمن، تحرك ببطء نحو حائط أو عائق ثابت مع المرافق، وتوقف قبل ملامسته. كرر مرتين مع تغيير زاوية الاقتراب.'},
+  low_light: {title:'إضاءة ضعيفة أو ظلام', instructions:'اختبر في مكان داخلي آمن بإضاءة عادية ثم منخفضة تدريجيًا. لا تتحرك في الظلام؛ ابقَ ثابتًا مع المرافق. لا تطفئ إنارة درج أو ممر يستخدمه أشخاص.'},
+  mixed: {title:'مشهد مختلط', instructions:'اختر مكانًا آمنًا يجمع أكثر من عنصر مثل أشخاص وسيارة متوقفة ورصيف. ابقَ مع المرافق وسجّل المشهد من موضع ثابت ثم من حركة بطيئة آمنة.'}
+};
+
 
 let barcodeDetector = null;
 try { if ('BarcodeDetector' in window) barcodeDetector = new window.BarcodeDetector({ formats: ['qr_code', 'ean_13', 'ean_8', 'upc_a', 'code_128', 'data_matrix'] }); } catch (e) {}
@@ -859,7 +935,7 @@ function refreshAssetButtonsState() {
     preloadOcrBtn.disabled = false;
   }
   if (loadSegformerBtn && !segLoading) {
-    loadSegformerBtn.textContent = segPipeline
+    loadSegformerBtn.textContent = (segReady || segPipeline)
       ? '✅ نموذج المكان محمّل ونشط'
       : (isSavedFlag(LS_SEG_READY) ? '✅ نموذج المكان سبق تنزيله — جاهز دون إعادة تنزيل' : '🚪 تحميل نموذج الحوائط والأبواب والسلالم والمياه (SegFormer — 4.4 ميجا)');
     loadSegformerBtn.disabled = false;
@@ -934,11 +1010,42 @@ spatialAudioCheckbox.addEventListener('change', () => { spatialAudioEnabled = sp
 autoTorchCheckbox.checked = autoTorchEnabled;
 autoTorchCheckbox.addEventListener('change', () => { autoTorchEnabled = autoTorchCheckbox.checked; writeLS(LS_AUTO_TORCH, autoTorchEnabled); updateTorchUI(); });
 
+// iOS لا يقبل requestPermission() إلا من داخل لمسة مستخدم، والتطبيق يبدأ تلقائياً عند التحميل بلا لمسة.
+// لذلك نعيد المحاولة عند أول لمسة حتى ينجح الربط (أو يُرفض صراحةً)، بدل الفشل الصامت الدائم.
+let orientationAttached = false, orientationDenied = false, orientationPermissionPending = false, orientationGestureHooked = false;
+function attachOrientationListener() {
+  if (orientationAttached) return;
+  orientationAttached = true;
+  window.addEventListener('deviceorientation', ev => {
+    if (typeof ev.beta === 'number') phonePitchBeta = ev.beta;
+    if (!fieldRecording || fieldClockNow() - fieldLastOrientationAt < 100) return; fieldLastOrientationAt = fieldClockNow();
+    fieldPush('orientation', { beta: Number.isFinite(ev.beta) ? ev.beta : null, gamma: Number.isFinite(ev.gamma) ? ev.gamma : null, alpha: Number.isFinite(ev.alpha) ? ev.alpha : null });
+  }, { passive: true });
+}
+function orientationGestureRetry() {
+  if (orientationAttached || orientationDenied) { unhookOrientationGesture(); return; }
+  initOrientationSensor();
+}
+function hookOrientationGesture() {
+  if (orientationGestureHooked || !document.addEventListener) return;
+  orientationGestureHooked = true;
+  ['click', 'touchend', 'pointerup'].forEach(t => document.addEventListener(t, orientationGestureRetry, { passive: true }));
+}
+function unhookOrientationGesture() {
+  if (!orientationGestureHooked || !document.removeEventListener) return;
+  orientationGestureHooked = false;
+  ['click', 'touchend', 'pointerup'].forEach(t => document.removeEventListener(t, orientationGestureRetry));
+}
 function initOrientationSensor() {
-  if (!window.DeviceOrientationEvent) return;
-  const attach = () => window.addEventListener('deviceorientation', ev => { if (typeof ev.beta === 'number') phonePitchBeta = ev.beta; }, { passive: true });
-  if (typeof DeviceOrientationEvent.requestPermission === 'function') DeviceOrientationEvent.requestPermission().then(s => { if (s === 'granted') attach(); }).catch(() => {});
-  else attach();
+  if (!window.DeviceOrientationEvent || orientationAttached || orientationDenied) return;
+  if (typeof DeviceOrientationEvent.requestPermission !== 'function') { attachOrientationListener(); return; }
+  if (orientationPermissionPending) return;
+  orientationPermissionPending = true;
+  DeviceOrientationEvent.requestPermission().then(s => {
+    if (s === 'granted') { attachOrientationListener(); unhookOrientationGesture(); }
+    else if (s === 'denied') { orientationDenied = true; unhookOrientationGesture(); }
+  }).catch(() => { hookOrientationGesture(); })     // رُفض لغياب لمسة ⇒ نجرّب عند أول لمسة
+    .then(() => { orientationPermissionPending = false; });
 }
 
 let englishVoice = null;
@@ -1009,6 +1116,7 @@ function processSpeechQueue() {
   }
   speechQueueRunning = true;
   assistantSpeaking = true;
+  speechPriority = item.priority || 0;
   const utterance = new SpeechSynthesisUtterance(item.text);
   if (item.lang === 'en') {
     utterance.lang = englishVoice?.lang || 'en-US';
@@ -1031,7 +1139,8 @@ function processSpeechQueue() {
   speechWatchdog = setTimeout(finish, expected);
   try { window.speechSynthesis.speak(utterance); } catch (e) { finish(); }
 }
-function speak(text, interrupt = true) {
+function speak(text, interrupt = true, priority = 0) {
+  if (fieldRecording && text) fieldPush('speech', { text: String(text).slice(0, 240), priority: Number(priority) || 0, assistantWasSpeaking: !!assistantSpeaking });
   if (!('speechSynthesis' in window) || !text) return;
   if (interrupt) {
     speechQueueToken++;
@@ -1044,7 +1153,7 @@ function speak(text, interrupt = true) {
     assistantSpeaking = false;
   }
   const token = speechQueueToken;
-  speechQueue.push(...splitSpeechRuns(text).map(item => ({ ...item, token })));
+  speechQueue.push(...splitSpeechRuns(text).map(item => ({ ...item, token, priority })));
   if (!speechQueueRunning) {
     // Some Android browsers populate the voice list shortly after page load.
     if (!window.speechSynthesis.getVoices().length && !speechVoiceWaitTimer) {
@@ -2395,30 +2504,6 @@ async function loadTransformersEngineFixed() {
   return transformersModulePromise;
 }
 
-async function ensureSegFormerPipeline() {
-  if (segPipeline) return segPipeline;
-  if (segLoadPromise) return segLoadPromise;
-  segLoading = true;
-  if (loadSegformerBtn) { loadSegformerBtn.disabled = true; loadSegformerBtn.textContent = 'جارٍ تجهيز النموذج من التخزين المحلي...'; }
-  segLoadPromise = (async () => {
-    try {
-      const mod = await loadTransformersEngineFixed();
-      segPipeline = await mod.pipeline('image-segmentation', 'Xenova/segformer-b0-finetuned-ade-512-512', { device: 'wasm', dtype: 'q8' });
-      writeLS(LS_SEG_READY, '1');
-      segBadge.classList.remove('hidden');
-      if (loadSegformerBtn) loadSegformerBtn.textContent = '✅ تم تنزيله — جاهز دون إعادة تنزيل';
-      return segPipeline;
-    } catch (e) {
-      segPipeline = null; writeLS(LS_SEG_READY, '0');
-      if (loadSegformerBtn) loadSegformerBtn.textContent = '🚪 تعذر التجهيز — اضغط لإعادة المحاولة';
-      throw e;
-    } finally {
-      segLoading = false; if (loadSegformerBtn) loadSegformerBtn.disabled = false; segLoadPromise = null;
-    }
-  })();
-  return segLoadPromise;
-}
-
 async function ensureDepthPipeline() {
   if (depthPipeline) return depthPipeline;
   if (depthLoadPromise) return depthLoadPromise;
@@ -2444,7 +2529,7 @@ async function ensureDepthPipeline() {
 }
 
 async function enableAndLoadSegFormer() {
-  if (segPipeline) { updateSettingsStatus('نموذج الحوائط والأبواب والسلالم محمّل بالفعل.', true); return; }
+  if (segReady || segPipeline) { updateSettingsStatus('نموذج الحوائط والأبواب والسلالم محمّل بالفعل.', true); return; }
   updateSettingsStatus(isSavedFlag(LS_SEG_READY) ? 'جارٍ استعادة النموذج المحفوظ على الهاتف...' : 'جارٍ تنزيل نموذج الحوائط والأبواب والسلالم وحفظه...', true);
   try { await ensureSegFormerPipeline(); updateSettingsStatus('النموذج جاهز. سيُعاد استخدام النسخة المحفوظة عند فتح سند لاحقاً.', true); }
   catch (e) { updateSettingsStatus('تعذر تجهيز النموذج من التخزين المحلي أو تنزيله: ' + (e?.message || 'تحقق من الاتصال أول مرة وHTTPS'), true); }
@@ -2457,8 +2542,15 @@ async function enableAndLoadNeuralDepth() {
   catch (e) { updateSettingsStatus('تعذر تجهيز محرك العمق من التخزين المحلي أو تنزيله: ' + (e?.message || 'تحقق من الاتصال أول مرة وHTTPS'), true); }
 }
 
-async function analyzeLocalArchitecture() {
-  if (!segPipeline && isSavedFlag(LS_SEG_READY)) { try { await ensureSegFormerPipeline(); } catch (e) { return []; } }
+// البديل القديم على الخيط الرئيسي (pipeline كامل): يُستعمل فقط إن تعذّر العامل
+async function analyzeLocalArchitectureLegacy() {
+  if (!segPipeline && isSavedFlag(LS_SEG_READY)) {
+    // بديل حقيقي: نسخة pipeline على الخيط الرئيسي (من الكاش) حتى لو كان العامل جاهزاً لكن طلبه فشل
+    try {
+      const mod = await loadTransformersEngineFixed();
+      segPipeline = await mod.pipeline('image-segmentation', 'Xenova/segformer-b0-finetuned-ade-512-512', { device: 'wasm', dtype: 'q8' });
+    } catch (e) { return []; }
+  }
   if (!segPipeline) return [];
   try {
     captureFrame(512, 0.8);
@@ -2502,7 +2594,7 @@ async function runNeuralDepthAnalysis(archList = []) {
     const yFar = avg(0.30, 0.54, 0.70, 0.62), yMid = avg(0.30, 0.68, 0.70, 0.76), yNear = avg(0.30, 0.82, 0.70, 0.90);
     const g1 = yMid - yFar, g2 = yNear - yMid, dropCliff = g2 - g1;
     const alerts = [];
-    if (archList.some(a => a.includes('سلم')) && g1 > 8 && yFar > 110) alerts.push('درجات السلم تبدو مرتفعة أمامك (يُرجح صعود — تأكد بالعصا).');
+    if (archList.some(a => a.includes('سلم') || a.includes('سلال')) && g1 > 8 && yFar > 110) alerts.push('درجات السلم تبدو مرتفعة أمامك (يُرجح صعود — تأكد بالعصا).');
     if (l < r - 24) alerts.push('اليسار يبدو أبعد نسبياً.'); else if (r < l - 24) alerts.push('اليمين يبدو أبعد نسبياً.');
     return alerts;
   } catch (e) { return null; }
@@ -2527,61 +2619,132 @@ function estimateObjectDistance(pred, vw, vh) {
   return { meters: mr, steps, text: 'نحو ' + steps + (steps <= 10 ? ' خطوات' : ' خطوة') + ' (' + mr + ' متر)' };
 }
 
+function notifyCocoLoadFailure(msg) {
+  // نُعلن الفشل بالصوت مرة واحدة لكل سلسلة فشل (الشارة النصية لا يراها الكفيف)
+  if (cocoLoadFailNotified) return;
+  cocoLoadFailNotified = true;
+  updateStatus(msg); speak(msg, false);
+}
 async function initLocalObjectEngine() {
   if (!localScanEnabled) { localScannerBadge.textContent = 'الأجسام والمسافة: متوقفة'; return null; }
   if (objectModel) return objectModel;
   if (objectModelLoading) return objectModelLoading;
-  if (typeof cocoSsd === 'undefined') { localScannerBadge.textContent = 'الأجسام: غير متاحة'; return null; }
+  if (typeof cocoSsd === 'undefined') {
+    localScannerBadge.textContent = 'الأجسام: غير متاحة';
+    notifyCocoLoadFailure('كاشف الأجسام غير متاح الآن، والتنبيهات المستمرة للأجسام متوقفة. اتصل بالإنترنت مرة واحدة ثم أعد فتح التطبيق، واستعمل العصا.');
+    return null;
+  }
   localScannerBadge.textContent = 'الأجسام والمسافة: جارٍ التحميل...';
+  lastCocoLoadAttempt = Date.now();
   objectModelLoading = cocoSsd.load({ base: 'lite_mobilenet_v2' }).then(m => {
-    objectModel = m; localScannerBadge.textContent = 'الأجسام والمسافة: نشط'; return m;
-  }).catch(() => { localScannerBadge.textContent = 'الأجسام: تعذر التحميل'; return null; });
+    objectModel = m; cocoLoadFailNotified = false; localScannerBadge.textContent = 'الأجسام والمسافة: نشط'; return m;
+  }).catch(() => {
+    // كان الوعد الفاشل يبقى محفوظاً فلا تُعاد المحاولة أبداً؛ نُفرّغه ليُعاد التحميل تلقائياً من حلقة الرصد
+    objectModelLoading = null;
+    localScannerBadge.textContent = 'الأجسام: تعذر التحميل';
+    notifyCocoLoadFailure('تعذر تحميل كاشف الأجسام. سأعيد المحاولة تلقائياً. استعمل العصا في هذه الأثناء.');
+    return null;
+  });
   return objectModelLoading;
 }
 
 function getRelativePositionArabic(bbox, vw) { if (!bbox || !vw) return 'في الوسط'; const r = (bbox[0] + bbox[2] / 2) / vw; return r < 0.34 ? 'على اليسار' : (r > 0.66 ? 'على اليمين' : 'أمامك'); }
 function sideFromPosition(pos) { return pos === 'على اليسار' ? 'left' : (pos === 'على اليمين' ? 'right' : 'center'); }
 
+// ترتيب الأجسام المعروفة: الأولوية الأعلى ثم الأقرب (المسافة التقديرية) ثم الأعلى ثقة.
+// (كان الترتيب بالأولوية ثم الثقة فقط، فيتقدّم شخص بعيد عالي الثقة على سيارة قريبة.)
+function rankLocalObjects(preds, vw, vh) {
+  return (preds || []).filter(p => p && p.bbox && LOCAL_OBJECT_MAP[p.class])
+    .map(p => ({ p, meta: LOCAL_OBJECT_MAP[p.class], dist: estimateObjectDistance(p, vw, vh) }))
+    .sort((a, b) => (b.meta.priority - a.meta.priority)
+      || ((a.dist ? a.dist.meters : Infinity) - (b.dist ? b.dist.meters : Infinity))
+      || ((b.p.score || 0) - (a.p.score || 0)));
+}
+
+async function liveMonitorTick() {
+  if (isProcessing || isListening || isScanningFrame) return;
+  if (!videoElement || videoElement.paused || videoElement.ended || videoElement.videoWidth === 0) return;
+  const q = probeFrameQuality();
+  await evaluateContinuousAutoTorch(q);
+  if (!navModeEnabled || !localScanEnabled || lifeMode === 'grooming' || lifeMode === 'clothes') return;
+  if (!objectModel) {
+    // فشل تحميل سابق: نعيد المحاولة بفاصل ثابت بدل التعطل الدائم
+    if (!objectModelLoading && (Date.now() - lastCocoLoadAttempt) > COCO_RETRY_MS) initLocalObjectEngine();
+    return;
+  }
+  if (!assistantSpeaking && lifeMode === 'walk' && phonePitchBeta !== null && (Date.now() - lastTiltWarnTime) > 14000) {
+    if (phonePitchBeta > 112) { lastTiltWarnTime = Date.now(); speak('الكاميرا متجهة للأعلى؛ أمِل الهاتف للأمام قليلاً ليرى الطريق.', false); return; }
+    if (phonePitchBeta < 18)  { lastTiltWarnTime = Date.now(); speak('الكاميرا تنظر لأسفل جداً؛ ارفعها قليلاً.', false); return; }
+  }
+  isScanningFrame = true;
+  try {
+    // الرصد يستمر أثناء كلام المساعد (كان يتوقف فيُترك المستخدم بلا رصد طوال الجملة)؛ الذي يُنطق أثناء الكلام هو الاقتراب العاجل فقط
+    const vw = videoElement.videoWidth, vh = videoElement.videoHeight;
+    const detectStarted = fieldClockNow();
+    const preds = await objectModel.detect(videoElement, COCO_MAX_BOXES, 0.56);
+    const detectMs = fieldClockNow() - detectStarted;
+    cocoLastDetectMs = Math.round(detectMs * 10) / 10; cocoEmaDetectMs = cocoDetectSamples ? (cocoEmaDetectMs * 0.75 + detectMs * 0.25) : detectMs; cocoDetectSamples++;
+    const detectCompletedAt = fieldClockNow(); cocoLastGapMs = cocoLastDetectAt ? Math.round((detectCompletedAt - cocoLastDetectAt) * 10) / 10 : null; if (cocoLastGapMs !== null) cocoEmaGapMs = cocoDetectSamples > 1 ? (cocoEmaGapMs * 0.75 + cocoLastGapMs * 0.25) : cocoLastGapMs; cocoLastDetectAt = detectCompletedAt;
+    if (fieldRecording) {
+      const readAt = fieldClockNow();
+      fieldPush('detection', { detectMs: Math.round(detectMs * 10) / 10, gapSincePreviousDetectMs: fieldLastDetectAt ? Math.round((readAt - fieldLastDetectAt) * 10) / 10 : null, frameWidth: vw, frameHeight: vh, frameQuality: q ? { meanLuminance: Math.round(q.meanY * 10) / 10, sharpness: Math.round(q.sharpness * 100) / 100, lightLabel: q.lightLabel, lensCovered: !!q.isLensCovered } : null, predictions: (preds || []).map(p => {
+        const d = LOCAL_OBJECT_MAP[p.class] ? estimateObjectDistance(p, vw, vh) : null;
+        return { class: p.class, score: Number(p.score) || 0, bbox: Array.isArray(p.bbox) ? p.bbox.map(v => Math.round(v * 1000) / 1000) : null, relativePosition: Array.isArray(p.bbox) ? getRelativePositionArabic(p.bbox, vw) : null, estimatedDistanceMeters: d && Number.isFinite(d.meters) ? d.meters : null, estimatedSteps: d && Number.isFinite(d.steps) ? d.steps : null };
+      }) });
+      fieldLastDetectAt = readAt;
+    }
+    if (cocoDetectFails >= 3) localScannerBadge.textContent = 'الأجسام والمسافة: نشط';
+    cocoDetectFails = 0;
+    lastCocoPreds = { t: Date.now(), preds: preds || [], vw, vh };
+    const ranked = rankLocalObjects(preds, vw, vh), now = Date.now();
+    // الاقتراب: يُتتبَّع أكبر جسم أولويته ≥3 في الوسط مستقلاً عن ترتيب التنبيه (كان يُصفَّر إن تقدّم عليه جسم جانبي)
+    let center = null;
+    for (const r of ranked) {
+      if (r.meta.priority >= 3 && getRelativePositionArabic(r.p.bbox, vw) === 'أمامك') {
+        const a = r.p.bbox[2] * r.p.bbox[3];
+        if (!center || a > center.area) center = { r, area: a };
+      }
+    }
+    let loomingUrgent = false;
+    if (center) {
+      const cls = center.r.p.class;
+      if (prevCenterThreat && prevCenterThreat.cls === cls && (now - prevCenterThreat.t) < 2000 && prevCenterThreat.area > 0 && ((center.area - prevCenterThreat.area) / prevCenterThreat.area) >= 0.34) loomingUrgent = true;
+      prevCenterThreat = { cls, area: center.area, t: now };
+    } else prevCenterThreat = null;
+    if (!ranked.length) return;
+    const pick = loomingUrgent ? center.r : ranked[0], top = pick.p, meta = pick.meta, dist = pick.dist;
+    const pos = getRelativePositionArabic(top.bbox, vw);
+    const key = (loomingUrgent ? 'LOOM_' : 'obj_') + top.class + '_' + pos;
+    if (assistantSpeaking) {
+      if (!loomingUrgent) return;                                   // غير العاجل ينتظر انتهاء الكلام
+      if (urgentSpeechActive() && key === lastHazardAlertKey) return; // نفس التنبيه العاجل يُنطق الآن؛ لا نقطعه ونعيده
+    }
+    if (loomingUrgent || key !== lastHazardAlertKey || (now - lastHazardAlertTime) > 6500) {
+      lastHazardAlertKey = key; lastHazardAlertTime = now;
+      const urgent = loomingUrgent || meta.priority >= 3 || (dist && dist.steps <= 2);
+      playSpatialBeep(sideFromPosition(pos), urgent);
+      vibrate(loomingUrgent ? [120, 45, 120, 45, 120] : (urgent ? [85, 55, 85] : [35]));
+      const msg = loomingUrgent ? ('انتبه! ' + meta.ar + ' تقترب منك بسرعة ' + (dist ? ('— ' + dist.text) : '') + '!') : (meta.ar + ' ' + pos + (dist ? (' — ' + dist.text) : '') + '.');
+      updateStatus(msg); updateRiskIndicator(urgent ? 'يستلزم الحذر' : 'لم يظهر خطر واضح في الصورة'); speak(msg, true, loomingUrgent ? 2 : 0);
+    }
+  } catch (e) {
+    if (fieldRecording) fieldPush('detection_error', { name: String(e && e.name || 'Error').slice(0, 80), message: String(e && e.message || e).slice(0, 180) });
+    // لا فشل صامت: بعد 3 أخطاء متتالية نُعلن بالصوت (مرة كل دقيقة) ونُحدّث الشارة
+    cocoDetectFails++;
+    if (cocoDetectFails >= 3 && (Date.now() - lastCocoFailNotice) > COCO_FAIL_NOTICE_MS) {
+      lastCocoFailNotice = Date.now();
+      localScannerBadge.textContent = 'الأجسام: خطأ في الرصد';
+      const m = 'تعذر رصد الأجسام تلقائياً الآن. لا تعتمد على التنبيهات واستعمل العصا.';
+      updateStatus(m); speak(m, false);
+    }
+  } finally { isScanningFrame = false; }
+}
+
 function startLiveMonitoring() {
   startLiveRecognition();
   if (liveMonitorTimer) return;
   if (localScanEnabled && lifeMode !== 'grooming') initLocalObjectEngine();
-  liveMonitorTimer = setInterval(async () => {
-    if (isProcessing || isListening || isScanningFrame) return;
-    if (!videoElement || videoElement.paused || videoElement.ended || videoElement.videoWidth === 0) return;
-    const q = probeFrameQuality();
-    await evaluateContinuousAutoTorch(q);
-    if (!navModeEnabled || !localScanEnabled || assistantSpeaking || !objectModel || lifeMode === 'grooming' || lifeMode === 'clothes') return;
-    if (lifeMode === 'walk' && phonePitchBeta !== null && (Date.now() - lastTiltWarnTime) > 14000) {
-      if (phonePitchBeta > 112) { lastTiltWarnTime = Date.now(); speak('الكاميرا متجهة للأعلى؛ أمِل الهاتف للأمام قليلاً ليرى الطريق.', false); return; }
-      if (phonePitchBeta < 18)  { lastTiltWarnTime = Date.now(); speak('الكاميرا تنظر لأسفل جداً؛ ارفعها قليلاً.', false); return; }
-    }
-    isScanningFrame = true;
-    try {
-      const preds = await objectModel.detect(videoElement, 5, 0.56);
-      lastCocoPreds = { t: Date.now(), preds: preds || [], vw: videoElement.videoWidth, vh: videoElement.videoHeight };
-      const objects = (preds || []).filter(p => LOCAL_OBJECT_MAP[p.class])
-        .sort((a, b) => ((LOCAL_OBJECT_MAP[b.class].priority || 1) - (LOCAL_OBJECT_MAP[a.class].priority || 1)) || ((b.score || 0) - (a.score || 0)));
-      const top = objects[0];
-      if (!top) { prevCenterThreat = null; return; }
-      const meta = LOCAL_OBJECT_MAP[top.class], pos = getRelativePositionArabic(top.bbox, videoElement.videoWidth);
-      const dist = estimateObjectDistance(top, videoElement.videoWidth, videoElement.videoHeight), area = top.bbox[2] * top.bbox[3], now = Date.now();
-      let loomingUrgent = false;
-      if (meta.priority >= 3 && pos === 'أمامك') {
-        if (prevCenterThreat && prevCenterThreat.cls === top.class && (now - prevCenterThreat.t) < 2000 && prevCenterThreat.area > 0 && ((area - prevCenterThreat.area) / prevCenterThreat.area) >= 0.34) loomingUrgent = true;
-        prevCenterThreat = { cls: top.class, area, t: now };
-      } else prevCenterThreat = null;
-      const key = (loomingUrgent ? 'LOOM_' : 'obj_') + top.class + '_' + pos;
-      if (loomingUrgent || key !== lastHazardAlertKey || (now - lastHazardAlertTime) > 6500) {
-        lastHazardAlertKey = key; lastHazardAlertTime = now;
-        const urgent = loomingUrgent || meta.priority >= 3 || (dist && dist.steps <= 2);
-        playSpatialBeep(sideFromPosition(pos), urgent);
-        vibrate(loomingUrgent ? [120, 45, 120, 45, 120] : (urgent ? [85, 55, 85] : [35]));
-        const msg = loomingUrgent ? ('انتبه! ' + meta.ar + ' تقترب منك بسرعة ' + (dist ? ('— ' + dist.text) : '') + '!') : (meta.ar + ' ' + pos + (dist ? (' — ' + dist.text) : '') + '.');
-        updateStatus(msg); updateRiskIndicator(urgent ? 'يستلزم الحذر' : 'لم يظهر خطر واضح في الصورة'); speak(msg, true);
-      }
-    } catch (e) {} finally { isScanningFrame = false; }
-  }, 1200);
+  liveMonitorTimer = setInterval(liveMonitorTick, 1200);
 }
 function stopLiveMonitoring() { stopLiveRecognition(); if (liveMonitorTimer) { clearInterval(liveMonitorTimer); liveMonitorTimer = null; } }
 function setNavMode(on, announce) {
@@ -3537,7 +3700,7 @@ async function findObjectLive(targetRaw) {
     await loadInstalledPacks();
     const genMatch = matchPersonalByName(generalClasses.filter(c => c.kind !== 'background'), targetRaw);
     if (genMatch) { await findPersonalLive(genMatch, generalClasses); return; }
-    if (segPipeline) {
+    if (segReady || segPipeline || isSavedFlag(LS_SEG_READY)) {
       const match = (await analyzeLocalArchitecture()).find(line => normalizeArabicCommand(line).includes(t));
       if (match) { updateStatus('وجدت ' + match); speak('وجدت ' + match); return; }
     }
@@ -3646,7 +3809,57 @@ async function saveSettings(event) {
 }
 
 async function startFreeMode() { await startApp(true); }
+
+function fieldDbOpen() { return new Promise((resolve, reject) => { const req = indexedDB.open(FIELD_DB_NAME, 1); req.onupgradeneeded = () => { if (!req.result.objectStoreNames.contains('sessions')) req.result.createObjectStore('sessions', { keyPath: 'id' }); }; req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); }); }
+function fieldClockNow() { return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now(); }
+function fieldPush(type, data) { if (!fieldRecording) return; fieldRecording.events.push({ t: Math.round(fieldClockNow() - fieldStartedAt), wallTime: new Date().toISOString(), type, data }); }
+function fieldDeviceInfo() { const track = videoStream?.getVideoTracks?.()[0]; let settings = {}; try { settings = track?.getSettings?.() || {}; } catch(e) {} return { userAgent: navigator.userAgent, platform: navigator.platform || null, cores: navigator.hardwareConcurrency || null, deviceMemoryGB: navigator.deviceMemory || null, screen: { width: screen.width, height: screen.height, pixelRatio: devicePixelRatio || 1 }, camera: { width: settings.width || null, height: settings.height || null, facingMode: settings.facingMode || facingMode } }; }
+function updateFieldSceneInstructions() { const sel = document.getElementById('field-scene-select'), box = document.getElementById('field-scene-instructions'); if (!sel || !box) return; const sc = FIELD_SCENES[sel.value]; box.innerHTML = '<strong class="text-teal-200">' + sc.title + '</strong><p class="mt-1">' + sc.instructions + '</p><p class="mt-2 text-amber-200">التكرار المطلوب: مرتان على الأقل. أوقف التجربة فورًا إذا لم يكن المكان آمنًا.</p>'; }
+document.getElementById('field-scene-select')?.addEventListener('change', updateFieldSceneInstructions);
+async function startFieldRecording() {
+  const codeEl = document.getElementById('field-participant-code'), sceneEl = document.getElementById('field-scene-select'), consent = document.getElementById('field-consent-check'), status = document.getElementById('field-recorder-settings-status');
+  const participant = String(codeEl?.value || '').trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 20);
+  if (!participant) { status.textContent = 'اكتب رمز مشارك غير شخصي أولًا، مثل P03.'; codeEl?.focus(); return; }
+  if (!consent?.checked) { status.textContent = 'يرجى تأكيد تعليمات الخصوصية والسلامة قبل البدء.'; return; }
+  if (!navigator.mediaDevices?.getUserMedia) { status.textContent = 'يحتاج تشغيل الكاميرا إلى HTTPS أو localhost.'; return; }
+  if (!localScanEnabled || !navModeEnabled) { status.textContent = 'قبل التسجيل، فعّل من إعدادات سند: «رصد الأجسام والمسافة بالخطوات» و«تنبيهات السير المستمرة». ثم ابدأ الجلسة من جديد.'; return; }
+  const scene = sceneEl.value, sc = FIELD_SCENES[scene];
+  // طلب إذن حساس الحركة داخل ضغطة المستخدم حيث تشترطه بعض إصدارات iOS.
+  try {
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+      const permission = await DeviceMotionEvent.requestPermission();
+      fieldMotionPermission = permission === 'granted' ? 'granted' : 'denied';
+    }
+  } catch (e) { fieldMotionPermission = 'unavailable-or-denied'; /* يستمر التسجيل مع توثيق غياب الحساس */ }
+  if (!fieldMotionAttached && typeof window.DeviceMotionEvent !== 'undefined') {
+    window.addEventListener('devicemotion', ev => {
+      if (!fieldRecording || fieldClockNow() - fieldLastMotionAt < 100) return; fieldLastMotionAt = fieldClockNow();
+      const a = ev.accelerationIncludingGravity || {};
+      fieldPush('motion', { x: Number.isFinite(a.x) ? a.x : null, y: Number.isFinite(a.y) ? a.y : null, z: Number.isFinite(a.z) ? a.z : null, interval: Number.isFinite(ev.interval) ? ev.interval : null });
+    }, { passive: true });
+    fieldMotionAttached = true;
+  }
+  try { setLifeMode('walk', true); await startApp(true); } catch (e) { status.textContent = 'تعذر بدء التطبيق والكاميرا: ' + (e.message || e); return; }
+  fieldStartedAt = fieldClockNow();
+  fieldRecording = { schema: 'sanad-field-session-v1', id: 'sf_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8), participantCode: participant, scene, sceneTitle: sc.title, startedAt: new Date().toISOString(), device: fieldDeviceInfo(), sensors: { deviceMotionPermission: fieldMotionPermission, deviceOrientationAvailable: !!window.DeviceOrientationEvent, deviceMotionAvailable: !!window.DeviceMotionEvent }, appVersion: 'V20.12', notes: 'No images, video, or audio are recorded.', events: [] };
+  fieldPush('session_started', { scene, participantCode: participant });
+  document.getElementById('field-recorder-panel')?.classList.remove('hidden');
+  document.getElementById('field-recorder-live-instruction').textContent = sc.instructions + ' استخدم أزرار العلامات فقط عندما تلاحظ الحدث.';
+  updateFieldSceneInstructions();
+  if (fieldAutosaveTimer) clearInterval(fieldAutosaveTimer);
+  fieldAutosaveTimer = setInterval(() => saveFieldSession(false).catch(() => {}), 8000);
+  speak('بدأ تسجيل الاختبار. ' + sc.instructions, true);
+  updateFieldElapsed();
+}
+function updateFieldElapsed() { const el = document.getElementById('field-recorder-elapsed'); if (el && fieldRecording) { const sec = Math.floor((fieldClockNow() - fieldStartedAt) / 1000); el.textContent = String(Math.floor(sec / 60)).padStart(2,'0') + ':' + String(sec % 60).padStart(2,'0'); } if (fieldRecording) requestAnimationFrame(updateFieldElapsed); }
+function markFieldEvent(kind) { if (!fieldRecording) return; fieldPush('participant_marker', { kind }); const labels = { false_alarm:'تم تسجيل إنذار غير صحيح.', missed_hazard:'تم تسجيل خطر لم يكتشفه التطبيق.', real_approach:'تم تسجيل حالة اقتراب حقيقية.', scene_note:'تم تسجيل ملاحظة زمنية.' }; const el = document.getElementById('field-recorder-live-instruction'); if (el) el.textContent = labels[kind] + ' استمر في الاختبار الآمن.'; }
+async function saveFieldSession(finalize) { if (!fieldRecording) return; const snapshot = JSON.parse(JSON.stringify(fieldRecording)); snapshot.updatedAt = new Date().toISOString(); if (finalize) snapshot.completed = true; const db = await fieldDbOpen(); await new Promise((resolve, reject) => { const tx = db.transaction('sessions', 'readwrite'); tx.objectStore('sessions').put(snapshot); tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); }); db.close(); }
+async function stopAndExportFieldRecording() { if (!fieldRecording) return; fieldPush('session_ended', {}); if (fieldAutosaveTimer) { clearInterval(fieldAutosaveTimer); fieldAutosaveTimer = null; } const finalData = JSON.parse(JSON.stringify(fieldRecording)); finalData.endedAt = new Date().toISOString(); finalData.durationMs = Math.round(fieldClockNow() - fieldStartedAt); finalData.completed = true; try { const db = await fieldDbOpen(); await new Promise((resolve,reject) => { const tx=db.transaction('sessions','readwrite'); tx.objectStore('sessions').put(finalData); tx.oncomplete=resolve; tx.onerror=()=>reject(tx.error); }); db.close(); } catch(e) {} downloadFieldJson(finalData, finalData.id + '.json'); fieldRecording = null; document.getElementById('field-recorder-panel')?.classList.add('hidden'); const st = document.getElementById('field-recorder-settings-status'); if (st) st.textContent = 'انتهت الجلسة. حُفظت محليًا وبدأ تنزيل ملف JSON؛ أرسل الملف لفريق التطوير يدويًا بعد مراجعته.'; speak('انتهى التسجيل وتم تجهيز ملف البيانات.'); }
+function downloadFieldJson(data, filename) { const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1500); }
+async function exportSavedFieldSessions() { try { const db = await fieldDbOpen(); const all = await new Promise((resolve,reject) => { const tx=db.transaction('sessions','readonly'); const req=tx.objectStore('sessions').getAll(); req.onsuccess=()=>resolve(req.result||[]); req.onerror=()=>reject(req.error); }); db.close(); if (!all.length) { document.getElementById('field-recorder-settings-status').textContent='لا توجد جلسات محفوظة على هذا الهاتف بعد.'; return; } downloadFieldJson({ schema:'sanad-field-export-v1', exportedAt:new Date().toISOString(), sessions:all }, 'sanad-field-sessions.json'); document.getElementById('field-recorder-settings-status').textContent='تم تجهيز ملف يحتوي على ' + all.length + ' جلسة.'; } catch(e) { document.getElementById('field-recorder-settings-status').textContent='تعذر قراءة التسجيلات المحلية: ' + (e.message || e); } }
+
 function openSettings() {
+  if (fieldRecording) { stopAndExportFieldRecording(); return; }
   stopSpeaking(); stopVoiceRecognition(); stopLiveMonitoring(); stopCamera();
   proxyUrlInput.value = proxyUrl; apiKeyInput.value = apiKey; providerSelect.value = provider;
   populateModelsForProvider(); modelInput.value = PROVIDERS[provider].models[modelName] ? modelName : PROVIDERS[provider].defaultModel;
@@ -3856,7 +4069,7 @@ function speakWait(text) {
     if (!('speechSynthesis' in window)) return res();
     stopSpeaking();
     try {
-      assistantSpeaking = true;
+      assistantSpeaking = true; speechPriority = 0;
       const u = new SpeechSynthesisUtterance(text); u.lang = arabicVoice ? arabicVoice.lang : 'ar-EG'; if (arabicVoice) u.voice = arabicVoice;
       let finished = false, timer = null;
       const done = () => { if (finished) return; finished = true; if (timer) clearTimeout(timer); assistantSpeaking = false; res(); };
@@ -4028,14 +4241,19 @@ function matchPersonalByName(items, raw) {
 const YES_WORDS = ['نعم', 'ايوه', 'ايوا', 'اه', 'تمام', 'صح', 'احفظ', 'موافق', 'ماشي'];
 function isYes(t) { const n = normalizeArabicCommand(t); return YES_WORDS.map(normalizeArabicCommand).some(w => n === w || n.startsWith(w + ' ')); }
 
-/* ===== محرك البصمات: عامل منفصل (الأفضل) أو الخيط الرئيسي كبديل =====
-   العامل (embed_worker.js) يُبقي الرصد والصوت والواجهة سلسة أثناء الاستدلال. إن تعذّر العامل يعمل التعرف
-   عند الطلب على الخيط الرئيسي كما كان، ويتوقف الرصد التلقائي بالبصمات (لأن الاستدلال على الخيط الرئيسي يجمّد كل شيء). */
+/* ===== عامل الرؤية: DINOv2 (بصمات) + SegFormer (المكان) خارج الخيط الرئيسي =====
+   عامل واحد (embed_worker.js) بطابور واحد: الرصد والصوت والواجهة تبقى سلسة أثناء الاستدلال.
+   إن تعذّر العامل يعمل التعرف عند الطلب على الخيط الرئيسي كما كان (وزر المكان بمسار pipeline القديم)،
+   ويتوقف الرصد التلقائي بالنماذج (لأن الاستدلال على الخيط الرئيسي يجمّد كل شيء). */
 const SL = window.SanadLive || null;
-if (!SL) console.error('live_recog_core.js لم يُحمَّل: الرصد التلقائي بالبصمات معطّل.');
-let embedWorker = null, embedWorkerInit = null, embedWorkerStructFail = false, embedReqId = 0, embedEpoch = 0;
+if (!SL) console.error('live_recog_core.js لم يُحمَّل: الرصد التلقائي بالنماذج معطّل.');
+let visionWorker = null, visionSpawn = null, visionStructFail = false;
+let embedReady = false, segMeta = null, segFallbackSeen = false;   // segReady معلن مبكراً قرب segPipeline
+let embedInitP = null, segInitP = null, embedReqId = 0, embedEpoch = 0;
+const visionWaiters = { embed: null, seg: null };
 const embedPending = new Map();
-const EMBED_TIMEOUT_MS = 30000;
+const EMBED_TIMEOUT_MS = 30000, SEG_TIMEOUT_MS = 45000;
+const SEG_LONG_SIDE = 384;      // الضلع الطويل لإدخال التجزئة (الأصلي كان 512 ثم يرفعه الـpipeline لحجم الصورة)
 
 // أي طلب من المستخدم (علّمني/ما هذا؟/ابحث) يبطل نتائج الرصد المعلّقة ويوقف الرصد لحظات
 function claimEmbedder() { embedEpoch++; liveRecog.holdUntil = Date.now() + 2500; }
@@ -4044,50 +4262,74 @@ function rejectAllEmbeds(msg) {
   for (const [, p] of embedPending) { clearTimeout(p.timer); p.reject(new Error(msg)); }
   embedPending.clear();
 }
-function startEmbedWorker() {
-  if (embedWorker) return Promise.resolve(true);
-  if (embedWorkerInit) return embedWorkerInit;
-  if (embedWorkerStructFail || typeof Worker === 'undefined' || location.protocol === 'file:') return Promise.resolve(false);
+function settleWaiter(k, ok) { const f = visionWaiters[k]; visionWaiters[k] = null; if (f) f(ok); }
+function spawnVisionWorker() {
+  if (visionWorker) return Promise.resolve(visionWorker);
+  if (visionSpawn) return visionSpawn;
+  if (visionStructFail || typeof Worker === 'undefined' || location.protocol === 'file:') return Promise.resolve(null);
   const p = new Promise(resolve => {
     let w, settled = false;
-    const done = ok => { if (!settled) { settled = true; resolve(ok); } };
+    const done = x => { if (!settled) { settled = true; resolve(x); } };
     try { w = new Worker('embed_worker.js', { type: 'module' }); }
-    catch (e) { embedWorkerStructFail = true; done(false); return; }
+    catch (e) { visionStructFail = true; done(null); return; }
     w.onerror = () => {
       rejectAllEmbeds('worker error');
       try { w.terminate(); } catch (e) {}
-      if (embedWorker === w) embedWorker = null;
-      if (!settled) embedWorkerStructFail = true;   // لم يبدأ أصلاً: السكربت لم يُحمَّل أو النوع غير مدعوم
-      done(false);
+      if (visionWorker === w) { visionWorker = null; embedReady = false; segReady = false; }
+      if (!settled) visionStructFail = true;       // لم يبدأ أصلاً: السكربت لم يُحمَّل أو النوع غير مدعوم
+      settleWaiter('embed', false); settleWaiter('seg', false);
+      done(null);
     };
     w.onmessage = ev => {
       const m = ev.data || {};
-      if (m.type === 'ready') { embedWorker = w; writeLS(LS_DINO_READY, '1'); done(true); return; }
-      if (m.type === 'init-error') { try { w.terminate(); } catch (e) {} done(false); return; }   // غالباً الشبكة/الكاش: يمكن إعادة المحاولة لاحقاً
+      switch (m.type) {
+        case 'alive': visionWorker = w; done(w); return;
+        case 'ready': embedReady = true; writeLS(LS_DINO_READY, '1'); settleWaiter('embed', true); return;
+        case 'init-error': settleWaiter('embed', false); return;     // غالباً الشبكة/الكاش: يمكن إعادة المحاولة لاحقاً
+        case 'seg-ready': segReady = true; segMeta = { id2label: m.id2label || {} }; writeLS(LS_SEG_READY, '1'); settleWaiter('seg', true); return;
+        case 'seg-init-error': settleWaiter('seg', false); return;
+      }
       const q = embedPending.get(m.id); if (!q) return;
       embedPending.delete(m.id); clearTimeout(q.timer);
-      m.ok ? q.resolve({ vec: m.vec, ms: m.ms || 0 }) : q.reject(new Error(m.message || 'embed failed'));
+      m.ok ? q.resolve(m) : q.reject(new Error(m.message || 'job failed'));
     };
-    w.postMessage({ type: 'init' });
   });
-  embedWorkerInit = p;
-  p.then(() => { if (embedWorkerInit === p) embedWorkerInit = null; });
+  visionSpawn = p;
+  p.then(() => { if (visionSpawn === p) visionSpawn = null; });
   return p;
 }
-function workerEmbedTimed(blob) {
+function startVisionModel(kind) {            // kind: 'embed' | 'seg'
+  const ready = kind === 'embed' ? embedReady : segReady;
+  if (ready) return Promise.resolve(true);
+  const cur = kind === 'embed' ? embedInitP : segInitP;
+  if (cur) return cur;
+  const p = (async () => {
+    const w = await spawnVisionWorker(); if (!w) return false;
+    return new Promise(res => { visionWaiters[kind] = res; w.postMessage({ type: kind === 'embed' ? 'init' : 'seg-init' }); });
+  })();
+  if (kind === 'embed') embedInitP = p; else segInitP = p;
+  p.then(() => { if (kind === 'embed' ? embedInitP === p : segInitP === p) { if (kind === 'embed') embedInitP = null; else segInitP = null; } });
+  return p;
+}
+const startEmbedWorker = () => startVisionModel('embed');
+const startSegWorker = () => startVisionModel('seg');
+
+function postJob(type, payload, timeoutMs, transfer) {
   return new Promise((resolve, reject) => {
-    if (!embedWorker) { reject(new Error('no worker')); return; }
+    if (!visionWorker) { reject(new Error('no worker')); return; }
     const id = ++embedReqId;
-    const timer = setTimeout(() => { if (embedPending.delete(id)) reject(new Error('embed timeout')); }, EMBED_TIMEOUT_MS);
+    const timer = setTimeout(() => { if (embedPending.delete(id)) reject(new Error(type + ' timeout')); }, timeoutMs);
     embedPending.set(id, { resolve, reject, timer });
-    try { embedWorker.postMessage({ type: 'embed', id, blob }); }
+    try { visionWorker.postMessage(Object.assign({ type, id }, payload), transfer || []); }
     catch (e) { clearTimeout(timer); embedPending.delete(id); reject(e); }
   });
 }
+function workerEmbedTimed(blob) { return embedReady ? postJob('embed', { blob }, EMBED_TIMEOUT_MS) : Promise.reject(new Error('embed not ready')); }
 async function workerEmbed(blob) { return (await workerEmbedTimed(blob)).vec; }
+function workerSegTimed(w, h, buf) { return segReady ? postJob('seg', { w, h, buf }, SEG_TIMEOUT_MS, [buf]) : Promise.reject(new Error('seg not ready')); }
 
 async function ensurePersonalModel() {
-  if (embedWorker) return 'worker';
+  if (embedReady) return 'worker';
   if (personalExtractor) return 'main';
   if (personalLoading) return personalLoading;
   personalLoading = (async () => {
@@ -4108,7 +4350,7 @@ function canvasToJpegBlob(c, q) {
 }
 // نفس JPEG 0.9 ونفس مسار فك الصورة السابقين ⇒ بصمات متطابقة مع الحزم
 async function embedCanvas(c) {
-  const be = embedWorker ? 'worker' : (personalExtractor ? 'main' : await ensurePersonalModel());
+  const be = embedReady ? 'worker' : (personalExtractor ? 'main' : await ensurePersonalModel());
   if (be === 'worker') return workerEmbed(await canvasToJpegBlob(c, 0.9));
   if (be === 'main' && personalExtractor) {
     const out = await personalExtractor(c.toDataURL('image/jpeg', 0.9));
@@ -4133,20 +4375,88 @@ async function embedFrame(crop) {
   return embedCanvas(srcCanvas);
 }
 
-/* ===== الرصد التلقائي بالبصمات: المخاطر العامة (دائماً أولاً) + أشيائي (اختياري) =====
-   - بصمة واحدة للإطار تُقارَن بالاثنين معاً (المقارنة شبه مجانية، كلفتها كلها في النموذج).
+/* ===== المكان (SegFormer) عبر العامل: بلا pipeline وبلا أقنعة كاملة ===== */
+function grabSegFrame(vw, vh) {
+  const d = SL ? SL.segDims(vw, vh, SEG_LONG_SIDE) : [SEG_LONG_SIDE, 288], W = d[0], H = d[1];
+  const c = liveRecog.segCv || (liveRecog.segCv = document.createElement('canvas'));
+  c.width = W; c.height = H;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.drawImage(videoElement, 0, 0, W, H);
+  return { w: W, h: H, buf: x.getImageData(0, 0, W, H).data.buffer };
+}
+async function runSegFrame() {
+  const v = videoElement; if (!v || !v.videoWidth) throw new Error('no video');
+  const f = grabSegFrame(v.videoWidth, v.videoHeight);
+  const r = await workerSegTimed(f.w, f.h, f.buf);
+  if (r.fallback) segFallbackSeen = true;
+  const findings = SL.summarizeSegGrid(r.labels, r.gw, r.gh, segMeta.id2label, ADE20K_CRITICAL);
+  return { findings, ms: r.ms, strings: SL.formatArchFindings(findings) };
+}
+async function ensureSegFormerPipeline() {
+  if (segReady || segPipeline) return segReady ? 'worker' : segPipeline;
+  if (segLoadPromise) return segLoadPromise;
+  segLoading = true;
+  if (loadSegformerBtn) { loadSegformerBtn.disabled = true; loadSegformerBtn.textContent = 'جارٍ تجهيز النموذج من التخزين المحلي...'; }
+  segLoadPromise = (async () => {
+    try {
+      let be = 'worker';
+      if (!(await startSegWorker())) {        // بديل: pipeline على الخيط الرئيسي كما كان
+        const mod = await loadTransformersEngineFixed();
+        segPipeline = await mod.pipeline('image-segmentation', 'Xenova/segformer-b0-finetuned-ade-512-512', { device: 'wasm', dtype: 'q8' });
+        be = 'main';
+      }
+      writeLS(LS_SEG_READY, '1');
+      segBadge.classList.remove('hidden');
+      if (loadSegformerBtn) loadSegformerBtn.textContent = '✅ تم تنزيله — جاهز دون إعادة تنزيل';
+      return be;
+    } catch (e) {
+      segPipeline = null; writeLS(LS_SEG_READY, '0');
+      if (loadSegformerBtn) loadSegformerBtn.textContent = '🚪 تعذر التجهيز — اضغط لإعادة المحاولة';
+      throw e;
+    } finally {
+      segLoading = false; if (loadSegformerBtn) loadSegformerBtn.disabled = false; segLoadPromise = null;
+    }
+  })();
+  return segLoadPromise;
+}
+async function analyzeLocalArchitecture() {
+  if (SL) {
+    // نتيجة حيّة حديثة لنفس المشهد ⇒ فورية (لا حساب جديد)
+    const fresh = liveRecog.lastArch;
+    if (fresh && Date.now() - fresh.t < 4000) {
+      const th = grabLiveThumb();
+      if (th && SL.sceneDiff(fresh.thumb, th) < 6) return fresh.strings;
+    }
+    if (!segReady && isSavedFlag(LS_SEG_READY)) { try { await startSegWorker(); } catch (e) {} }
+    if (segReady && visionWorker) { try { return (await runSegFrame()).strings; } catch (e) {} }
+  }
+  return analyzeLocalArchitectureLegacy();
+}
+
+/* ===== الرصد التلقائي بالنماذج: المخاطر العامة (دائماً أولاً) + المكان + أشيائي (اختياري) =====
+   - بصمة واحدة للإطار تُقارَن بالمخاطر وبأشيائك معاً (المقارنة شبه مجانية، كلفتها كلها في النموذج).
+   - لكل ميزة موعدها: الفاصل = k × زمن الاستدلال المقيس (المخاطر 3× ≈ 25% من المعالج، المكان 6×).
    - تعمل في العامل فقط، بفتحة واحدة في آن، ولا طابور: ما فات يُتجاهل.
-   - الفاصل = 3 × زمن البصمة المقيس (≈25% من المعالج)، وتتوقف الميزة تماماً على الجهاز البالغ البطء مع إخبار المستخدم مرة.
-   - لا تعمل في المرآة/الملابس، ولا أثناء كلام المساعد أو طلب المستخدم. لا تنزيل تلقائياً: يلزم أن يكون النموذج مجهّزاً سابقاً. */
+   - تتوقف كل ميزة على حدة على الجهاز البالغ البطء مع إخبار المستخدم مرة.
+   - لا تعمل في المرآة/الملابس، ولا أثناء كلام المساعد أو طلب المستخدم. لا تنزيل تلقائياً: يلزم أن تكون النماذج مجهّزة سابقاً. */
 let lastCocoPreds = null;
 let liveHazardEnabled = readLS(LS_LIVE_HAZARD, '1') !== '0';
 let liveItemsEnabled = readLS(LS_LIVE_ITEMS, '0') === '1';
+let liveArchEnabled = readLS(LS_LIVE_ARCH, '1') !== '0';
+const FEATURE_PLAN = {     // k = مضاعف الفاصل. الأرقام ابتدائية وتحتاج معايرة على أجهزة حقيقية
+  scene: { model: 'embed', k: 3, minDelay: 900, maxDelay: 7500 },
+  roi:   { model: 'embed', k: 6, minDelay: 2000, maxDelay: 12000 },
+  arch:  { model: 'seg',   k: 6, minDelay: 1500, maxDelay: 12000, offAt: 3500 }
+};
 const liveRecog = {
-  running: false, timer: null, busy: false, counter: 0, samples: 0, ema: 0, off: false, workerTried: false, fails: 0,
-  lastThumb: null, lastEmbedAt: 0, holdUntil: 0, gateCv: null, liveCv: null,
+  running: false, timer: null, busy: false, holdUntil: 0, gateCv: null, liveCv: null, segCv: null,
+  off: { embed: false, seg: false }, tried: { embed: false, seg: false }, fails: { embed: 0, seg: 0 },
+  ema: { embed: 0, seg: 0 }, samples: { embed: 0, seg: 0 }, due: { scene: 0, roi: 0, arch: 0 },
+  gates: { scene: { thumb: null, at: 0 }, roi: { thumb: null, at: 0 }, arch: { thumb: null, at: 0 } },
   hazardVotes: SL ? SL.createVoteTracker({ need: 2, strong: GENERAL_MIN_SIM + 0.10 }) : null,
   itemVotes: SL ? SL.createVoteTracker({ need: 2, strong: 0.80 }) : null,
-  lastHazardKey: '', lastHazardTime: 0, lastItemKey: '', lastItemTime: 0
+  archAnnouncer: SL ? SL.createArchAnnouncer() : null,
+  lastHazardKey: '', lastHazardTime: 0, lastItemKey: '', lastItemTime: 0, lastArch: null, lastMs: { embed: 0, seg: 0 }
 };
 
 function grabLiveThumb() {
@@ -4170,15 +4480,17 @@ function renderLiveFrame(slot, roi) {
   c.getContext('2d', { alpha: false }).drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
   return c;
 }
-async function liveRecogEnsureWorker() {
-  if (embedWorker || liveRecog.workerTried) return;
-  if (!isSavedFlag(LS_DINO_READY)) return;      // لا تنزيل تلقائي: المستخدم لم يجهّز النموذج بعد
-  liveRecog.workerTried = true;                 // محاولة واحدة لكل جلسة
-  await startEmbedWorker();
+async function liveRecogEnsureWorkers(need) {
+  const jobs = [];
+  if (need.embed && !embedReady && !liveRecog.tried.embed && isSavedFlag(LS_DINO_READY)) { liveRecog.tried.embed = true; jobs.push(startEmbedWorker()); }
+  if (need.seg && !segReady && !liveRecog.tried.seg && isSavedFlag(LS_SEG_READY)) { liveRecog.tried.seg = true; jobs.push(startSegWorker()); }   // لا تنزيل تلقائي: يلزم تجهيز سابق
+  if (jobs.length) await Promise.all(jobs);
 }
-function liveRecogTooSlow() {
-  liveRecog.off = true; stopLiveRecognition();
-  const m = 'الرصد التلقائي للمخاطر بالصور متوقف لأن هذا الجهاز بطيء في هذه الميزة. ما زال «ما هذا؟» يعمل عند الطلب.';
+function liveRecogDisable(model, why) {
+  liveRecog.off[model] = true;
+  const m = model === 'seg'
+    ? (why === 'slow' ? 'الرصد التلقائي للمكان (سلالم وأبواب) متوقف لأن هذا الجهاز بطيء فيه. ما زال زر الفحص يعمل.' : 'تعذر تشغيل الرصد التلقائي للمكان. ما زال زر الفحص يعمل.')
+    : (why === 'slow' ? 'الرصد التلقائي للمخاطر بالصور متوقف لأن هذا الجهاز بطيء في هذه الميزة. ما زال «ما هذا؟» يعمل عند الطلب.' : 'تعذر تشغيل الرصد التلقائي للمخاطر بالصور. ما زال «ما هذا؟» يعمل عند الطلب.');
   updateStatus(m); speak(m, false);
 }
 function handleLiveVector(v, slot, now) {
@@ -4208,6 +4520,22 @@ function handleLiveVector(v, slot, now) {
     }
   }
 }
+// المكان: السلم/الماء/الحائط/العمود تنبيه يقاطع؛ الأبواب والشبابيك وغيرها إخبار هادئ لا يقاطع
+function handleLiveArch(res, thumb, now) {
+  if (!segMeta || !liveRecog.archAnnouncer) return;
+  const findings = SL.summarizeSegGrid(res.labels, res.gw, res.gh, segMeta.id2label, ADE20K_CRITICAL);
+  liveRecog.lastArch = { t: now, thumb, strings: SL.formatArchFindings(findings) };
+  const allowInfo = !assistantSpeaking && (now - liveRecog.lastHazardTime) > 4000;
+  const r = liveRecog.archAnnouncer.update(findings, now, allowInfo);
+  if (r.alert) {
+    liveRecog.lastHazardTime = now;
+    const msg = r.alert.ar + ' ' + r.alert.pos + '. تأكد بعصاك.';
+    playSpatialBeep(sideFromPosition(r.alert.pos), true); vibrate([85, 55, 85]);
+    updateStatus(msg); updateRiskIndicator('يستلزم الحذر'); lastDescription = msg; speak(msg, true);
+    return;
+  }
+  if (r.info) { const msg = r.info.ar + ' ' + r.info.pos + '.'; updateStatus(msg); speak(msg, false); }
+}
 async function liveRecogTick() {
   liveRecog.timer = null;
   if (!liveRecog.running || !SL) return;
@@ -4216,49 +4544,74 @@ async function liveRecogTick() {
     if (liveRecog.busy) return again(500);
     if (installedPacks === null) await loadInstalledPacks();
     if (liveItemsEnabled && personalItems === null) await loadPersonalItems();
+    const hasItems = !!(personalItems && personalItems.length);
+    const wantHazard = liveHazardEnabled && !liveRecog.off.embed, wantItems = liveItemsEnabled && !liveRecog.off.embed;
+    const wantArch = liveArchEnabled && !liveRecog.off.seg;
     const gate = SL.liveGate({
       running: liveRecog.running, hidden: document.hidden, nav: navModeEnabled, lifeMode,
       busyUser: isProcessing || isListening || Date.now() < liveRecog.holdUntil,
       speaking: assistantSpeaking,
       videoOk: !!(videoElement && !videoElement.paused && !videoElement.ended && videoElement.videoWidth > 0),
-      backendReady: !!embedWorker,
-      wantHazard: liveHazardEnabled, hasHazardPool: hazardPool.length > 0,
-      wantItems: liveItemsEnabled, hasItems: !!(personalItems && personalItems.length)
+      backendReady: embedReady, segReady,
+      wantHazard, hasHazardPool: hazardPool.length > 0, wantItems, hasItems, wantArch
     });
-    if (gate === 'nobackend') { await liveRecogEnsureWorker(); return again(2000); }
+    if (gate === 'nobackend') {
+      await liveRecogEnsureWorkers({ embed: (wantHazard && hazardPool.length > 0) || (wantItems && hasItems), seg: wantArch });
+      return again(2000);
+    }
     if (gate !== 'run') return again(gate === 'user' ? 800 : (gate === 'speaking' ? 700 : (gate === 'novideo' ? 1500 : 3000)));
     if (isScanningFrame) return again(250);          // لا نزاحم لحظة كشف الأجسام
 
     const now = Date.now(), thumb = grabLiveThumb();
     if (!thumb || !SL.thumbUsable(thumb)) return again(1500);
-    const diff = SL.sceneDiff(liveRecog.lastThumb, thumb);
-    if (!SL.shouldEmbed({ diff, now, lastEmbedAt: liveRecog.lastEmbedAt })) return again(500);
-
-    const hasItems = !!(liveItemsEnabled && personalItems && personalItems.length);
-    const roi = (hasItems && lastCocoPreds && (now - lastCocoPreds.t) < 1500) ? SL.chooseRoi(lastCocoPreds.preds, lastCocoPreds.vw, lastCocoPreds.vh) : null;
-    const slot = SL.pickSlot(liveRecog.counter++, { items: hasItems, roi: !!roi });
+    const roi = (embedReady && wantItems && hasItems && lastCocoPreds && (now - lastCocoPreds.t) < 1500)
+      ? SL.chooseRoi(lastCocoPreds.preds, lastCocoPreds.vw, lastCocoPreds.vh) : null;
+    // مرتّبة بالأولوية: المخاطر (والأشياء بالإطار الكامل) ثم قصاصة الجسم ثم المكان
+    const feats = [];
+    if (embedReady && ((wantHazard && hazardPool.length > 0) || (wantItems && hasItems))) feats.push({ id: 'scene', due: liveRecog.due.scene });
+    if (embedReady && roi) feats.push({ id: 'roi', due: liveRecog.due.roi });
+    if (segReady && wantArch) feats.push({ id: 'arch', due: liveRecog.due.arch });
+    const sel = SL.chooseFeature(feats, now, id => {
+      const g = liveRecog.gates[id];
+      return SL.shouldEmbed({ diff: SL.sceneDiff(g.thumb, thumb), now, lastEmbedAt: g.at });
+    });
+    if (!sel.pick) return again(sel.waitMs);
+    const pick = sel.pick, plan = FEATURE_PLAN[pick], model = plan.model;
+    liveRecog.gates[pick].thumb = thumb; liveRecog.gates[pick].at = now;
     const epoch = embedEpoch;
-    liveRecog.busy = true; liveRecog.lastThumb = thumb; liveRecog.lastEmbedAt = now;
+    liveRecog.busy = true;
     let res = null;
-    try { res = await workerEmbedTimed(await canvasToJpegBlob(renderLiveFrame(slot, roi), 0.9)); liveRecog.fails = 0; }
-    catch (e) { liveRecog.fails++; }
+    try {
+      if (pick === 'arch') { const f = grabSegFrame(videoElement.videoWidth, videoElement.videoHeight); res = await workerSegTimed(f.w, f.h, f.buf); }
+      else res = await workerEmbedTimed(await canvasToJpegBlob(renderLiveFrame(pick, roi), 0.9));
+      liveRecog.fails[model] = 0;
+    } catch (e) { liveRecog.fails[model]++; }
     finally { liveRecog.busy = false; }
-    if (!res) { if (liveRecog.fails >= 3) { liveRecog.off = true; stopLiveRecognition(); return; } return again(3000); }
-
-    liveRecog.samples++;
-    if (liveRecog.samples > 1) liveRecog.ema = SL.updateEma(liveRecog.ema, res.ms);   // أول قياس = إحماء
-    const plan = SL.computeInterval(liveRecog.ema, { samples: liveRecog.samples - 1, cores: navigator.hardwareConcurrency, mem: navigator.deviceMemory });
-    const win = Math.max(9000, plan.delay * 2.5);
-    liveRecog.hazardVotes.setWindow(win); liveRecog.itemVotes.setWindow(win);
+    if (!res) {
+      if (liveRecog.fails[model] >= 3) liveRecogDisable(model, 'error'); else liveRecog.due[pick] = Date.now() + 3000;
+      return again(500);
+    }
+    if (res.fallback) segFallbackSeen = true;
+    liveRecog.samples[model]++; liveRecog.lastMs[model] = res.ms;
+    if (liveRecog.samples[model] > 1) liveRecog.ema[model] = SL.updateEma(liveRecog.ema[model], res.ms);   // أول قياس = إحماء
+    const iv = SL.computeInterval(liveRecog.ema[model], {
+      samples: liveRecog.samples[model] - 1, cores: navigator.hardwareConcurrency, mem: navigator.deviceMemory,
+      k: plan.k, minDelay: plan.minDelay, maxDelay: plan.maxDelay, offAt: plan.offAt
+    });
+    liveRecog.due[pick] = Date.now() + iv.delay;
+    const win = Math.max(9000, iv.delay * 2.5);
+    liveRecog.hazardVotes.setWindow(win); liveRecog.itemVotes.setWindow(win); liveRecog.archAnnouncer.setWindow(win);
     // نتيجة قديمة (طلب مستخدم جرى أثناء الحساب) أو المستخدم مشغول ⇒ تُهمل
-    if (epoch === embedEpoch && !isProcessing && !isListening) handleLiveVector(res.vec, slot, Date.now());
-    if (plan.tier === 'off') return liveRecogTooSlow();
-    again(plan.delay);
+    if (epoch === embedEpoch && !isProcessing && !isListening) {
+      if (pick === 'arch') handleLiveArch(res, thumb, Date.now()); else handleLiveVector(res.vec, pick, Date.now());
+    }
+    if (iv.tier === 'off') liveRecogDisable(model, 'slow');
+    again(200);
   } catch (e) { again(3000); }
 }
 function startLiveRecognition() {
-  if (!SL || liveRecog.running || liveRecog.off) return;
-  liveRecog.running = true; liveRecog.counter = 0;
+  if (!SL || liveRecog.running) return;
+  liveRecog.running = true;
   liveRecog.timer = setTimeout(liveRecogTick, 2500);
 }
 function stopLiveRecognition() {
@@ -4266,21 +4619,32 @@ function stopLiveRecognition() {
   if (liveRecog.timer) { clearTimeout(liveRecog.timer); liveRecog.timer = null; }
   if (liveRecog.hazardVotes) liveRecog.hazardVotes.reset();
   if (liveRecog.itemVotes) liveRecog.itemVotes.reset();
-  liveRecog.lastThumb = null; liveRecog.lastEmbedAt = 0;
+  if (liveRecog.archAnnouncer) liveRecog.archAnnouncer.reset();
+  for (const k of ['scene', 'roi', 'arch']) { liveRecog.gates[k].thumb = null; liveRecog.gates[k].at = 0; liveRecog.due[k] = 0; }
 }
 (function wireLiveRecogSettings() {
-  const hz = document.getElementById('live-recog-hazard-checkbox'), it = document.getElementById('live-recog-items-checkbox');
-  const reenable = () => { liveRecog.off = false; liveRecog.ema = 0; liveRecog.samples = 0; liveRecog.fails = 0; if (!liveRecog.running && liveMonitorTimer) startLiveRecognition(); };
-  if (hz) { hz.checked = liveHazardEnabled; hz.addEventListener('change', () => { liveHazardEnabled = hz.checked; writeLS(LS_LIVE_HAZARD, liveHazardEnabled ? '1' : '0'); if (liveHazardEnabled) reenable(); }); }
-  if (it) { it.checked = liveItemsEnabled; it.addEventListener('change', () => { liveItemsEnabled = it.checked; writeLS(LS_LIVE_ITEMS, liveItemsEnabled ? '1' : '0'); if (liveItemsEnabled) reenable(); }); }
+  const hz = document.getElementById('live-recog-hazard-checkbox'), it = document.getElementById('live-recog-items-checkbox'), ar = document.getElementById('live-arch-checkbox');
+  const reenable = model => {
+    liveRecog.off[model] = false; liveRecog.ema[model] = 0; liveRecog.samples[model] = 0; liveRecog.fails[model] = 0;
+    if (!liveRecog.running && liveMonitorTimer) startLiveRecognition();
+  };
+  if (hz) { hz.checked = liveHazardEnabled; hz.addEventListener('change', () => { liveHazardEnabled = hz.checked; writeLS(LS_LIVE_HAZARD, liveHazardEnabled ? '1' : '0'); if (liveHazardEnabled) reenable('embed'); }); }
+  if (it) { it.checked = liveItemsEnabled; it.addEventListener('change', () => { liveItemsEnabled = it.checked; writeLS(LS_LIVE_ITEMS, liveItemsEnabled ? '1' : '0'); if (liveItemsEnabled) reenable('embed'); }); }
+  if (ar) { ar.checked = liveArchEnabled; ar.addEventListener('change', () => { liveArchEnabled = ar.checked; writeLS(LS_LIVE_ARCH, liveArchEnabled ? '1' : '0'); if (liveArchEnabled) reenable('seg'); }); }
 })();
 // قياس على الهاتف (من وحدة تحكم المتصفح عبر الفحص عن بعد): sanadLiveStats()
 window.sanadLiveStats = () => {
-  const plan = SL ? SL.computeInterval(liveRecog.ema, { samples: Math.max(0, liveRecog.samples - 1), cores: navigator.hardwareConcurrency, mem: navigator.deviceMemory }) : null;
-  return { backend: embedWorker ? 'worker' : (personalExtractor ? 'main' : 'none'), running: liveRecog.running, off: liveRecog.off,
-    samples: liveRecog.samples, emaMs: Math.round(liveRecog.ema), tier: plan && plan.tier, delayMs: plan && plan.delay,
+  const iv = (m, p) => SL ? SL.computeInterval(liveRecog.ema[m], Object.assign({ samples: Math.max(0, liveRecog.samples[m] - 1), cores: navigator.hardwareConcurrency, mem: navigator.deviceMemory }, p)) : null;
+  const ie = iv('embed', FEATURE_PLAN.scene), is = iv('seg', FEATURE_PLAN.arch);
+  return {
+    running: liveRecog.running, worker: !!visionWorker, backendEmbed: embedReady ? 'worker' : (personalExtractor ? 'main' : 'none'),
+    embed: { ready: embedReady, off: liveRecog.off.embed, samples: liveRecog.samples.embed, lastMs: liveRecog.lastMs.embed, emaMs: Math.round(liveRecog.ema.embed), tier: ie && ie.tier, delayMs: ie && ie.delay },
+    seg: { ready: segReady, off: liveRecog.off.seg, samples: liveRecog.samples.seg, lastMs: liveRecog.lastMs.seg, emaMs: Math.round(liveRecog.ema.seg), tier: is && is.tier, delayMs: is && is.delay, customSizeRejected: segFallbackSeen, inputLongSide: SEG_LONG_SIDE },
+    coco: { modelReady: !!objectModel, consecutiveFailures: cocoDetectFails, loopIntervalMs: 1200, lastDetectMs: cocoLastDetectMs, emaDetectMs: Math.round(cocoEmaDetectMs * 10) / 10, samples: cocoDetectSamples, lastGapMs: cocoLastGapMs, emaGapMs: Math.round(cocoEmaGapMs * 10) / 10 },
+    fieldRecording: !!fieldRecording, fieldEvents: fieldRecording ? fieldRecording.events.length : 0,
     hazardClasses: hazardPool.length, items: personalItems ? personalItems.length : null,
-    cores: navigator.hardwareConcurrency || null, memGB: navigator.deviceMemory || null };
+    cores: navigator.hardwareConcurrency || null, memGB: navigator.deviceMemory || null
+  };
 };
 const MED_RE = /(دواء|دوا|حبوب|قرص|اقراص|شراب|علاج|حقن|مرهم|قطره|كبسول)/;
 

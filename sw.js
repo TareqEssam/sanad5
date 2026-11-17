@@ -7,7 +7,7 @@
    - أي طلب آخر (Gemini، OpenRouter، الترجمة، خادم الصور الخاص) يمر مباشرة دون تخزين.
    - ملفات الحزم *.json (غير manifest.json) لا تُخزَّن هنا لأن التطبيق يحفظها في IndexedDB.
    لإصدار تحديث جديد للموقع غيّر رقم VERSION. */
-const VERSION = 'v15';
+const VERSION = 'v18';
 const CORE_CACHE = 'sanad-core-' + VERSION;
 const LIB_CACHE = 'sanad-libs-v1';
 const CORE_FILES = ['./', './index.html', 'mirror_core.js', 'live_recog_core.js', 'embed_worker.js', 'mirror_selftest.html', 'manifest.json', 'icon-192.png', 'icon-512.png'];

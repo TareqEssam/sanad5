@@ -88,9 +88,6 @@
       background: rgba(31, 41, 55, .78);
     }
     .settings-action { width: 100%; border-radius: 12px; padding: 13px; font-weight: 700; }
-    #field-recorder-panel { position:absolute; z-index:35; bottom:72px; left:8px; right:8px; max-width:560px; max-height:44%; overflow:auto; margin-inline:auto; background:rgba(2,6,23,.97); border:2px solid #0d9488; border-radius:16px; padding:10px; box-shadow:0 8px 28px rgba(0,0,0,.55); }
-    #field-recorder-panel button { min-height:44px; padding:8px; border-radius:10px; font-weight:800; }
-    #field-recorder-panel button:disabled { opacity:.45; }
     .risk-danger { color: #fecaca; border-color: #b91c1c; background: rgba(127, 29, 29, .72); }
     .risk-caution { color: #fde68a; border-color: #b45309; background: rgba(120, 53, 15, .56); }
     .risk-none { color: #bfdbfe; border-color: #1d4ed8; background: rgba(30, 58, 138, .48); }
@@ -226,24 +223,23 @@
       </button>
 
       <section class="settings-step border-teal-700" aria-labelledby="field-recorder-heading">
-        <h2 id="field-recorder-heading" class="text-lg font-bold text-teal-200 mb-2">🧪 المشاركة في اختبار سند وتسجيل البيانات</h2>
-        <p class="text-sm text-gray-200 leading-relaxed mb-2">هذا الوضع مخصص للمرافق المبصر. يسجل قراءات الرصد والحساسات والتنبيهات فقط، ولا يسجل صورًا أو فيديو أو صوتًا. عند طلب إذن الحركة أو اتجاه الهاتف اختر «سماح»؛ غياب القراءات سيجعل الجلسة غير مكتملة. البيانات تبقى على هذا الهاتف ولا تُرسل تلقائيًا.</p>
-        <label class="block text-sm mb-2">رمز مشارك غير شخصي (مثال: P03)
-          <input id="field-participant-code" maxlength="20" autocomplete="off" placeholder="اكتب رمزًا مثل P03" class="w-full mt-1 p-3 rounded-lg bg-gray-900 border border-gray-600 text-white" style="min-height:48px; user-select:text">
+        <h2 id="field-recorder-heading" class="text-lg font-bold text-teal-200 mb-2">🧪 المشاركة في اختبار سند وتسجيل القراءات</h2>
+        <p class="text-sm text-gray-200 leading-relaxed mb-2">هذا الوضع مخصص للمرافق <strong>المبصر</strong>. يرشدك التطبيق خطوة بخطوة، ويتحقق بنفسه من تسجيل كل قراءة مطلوبة، ويطلب منك إعادتها عند النقص. يسجل قراءات الرصد والحساسات وبيانات الهاتف فقط؛ <strong>لا صور ولا فيديو ولا صوت ولا رفع تلقائي</strong>.</p>
+        <label class="block text-sm mb-2">رمز مشارك غير شخصي (مثال: P03، أحرف إنجليزية وأرقام)
+          <input id="field-participant-code" maxlength="20" autocomplete="off" placeholder="اكتب رمزًا مثل P03" oninput="fieldRefreshProgress()" class="w-full mt-1 p-3 rounded-lg bg-gray-900 border border-gray-600 text-white" style="min-height:48px; user-select:text">
         </label>
+        <div id="field-progress-list" class="rounded-lg bg-slate-900 border border-slate-700 p-3 text-sm leading-relaxed mb-2"></div>
         <div class="grid grid-cols-2 gap-2 mb-2">
-          <label class="block text-sm">الشركة المصنّعة للهاتف
-            <input id="field-device-maker" maxlength="40" autocomplete="off" placeholder="Apple / Samsung / Xiaomi" class="w-full mt-1 p-3 rounded-lg bg-gray-900 border border-gray-600 text-white" style="min-height:46px; user-select:text">
+          <label class="block text-sm">طراز الهاتف (اختياري، مثل Galaxy A54)
+            <input id="field-phone-model" maxlength="40" autocomplete="off" class="w-full mt-1 p-2 rounded-lg bg-gray-900 border border-gray-600 text-white" style="min-height:44px; user-select:text">
           </label>
-          <label class="block text-sm">طراز الهاتف (مطلوب)
-            <input id="field-device-model" maxlength="60" autocomplete="off" placeholder="مثال: iPhone 15 Pro" class="w-full mt-1 p-3 rounded-lg bg-gray-900 border border-gray-600 text-white" style="min-height:46px; user-select:text">
+          <label class="block text-sm">إصدار النظام (اختياري، مثل Android 14)
+            <input id="field-phone-os" maxlength="40" autocomplete="off" class="w-full mt-1 p-2 rounded-lg bg-gray-900 border border-gray-600 text-white" style="min-height:44px; user-select:text">
           </label>
         </div>
-        <label class="block text-sm mb-2">إصدار نظام التشغيل (إن عُرف)
-          <input id="field-os-version" maxlength="50" autocomplete="off" placeholder="مثال: iOS 18 أو Android 15" class="w-full mt-1 p-3 rounded-lg bg-gray-900 border border-gray-600 text-white" style="min-height:46px; user-select:text">
-        </label>
-        <label class="block text-sm mb-2">اختر المشهد الذي ستختبره
-          <select id="field-scene-select" class="w-full mt-1 p-3 rounded-lg bg-gray-900 border border-gray-600 text-white" style="min-height:48px">
+        <p class="text-xs text-gray-400 mb-2">المتصفح لا يكشف طراز الآيفون ولا كثيرًا من هواتف أندرويد؛ كتابته يفيد تحليل الأداء. اتركه فارغًا إن فضّلت.</p>
+        <label class="block text-sm mb-2">اختر المشهد الذي ستختبره الآن
+          <select id="field-scene-select" onchange="fieldSceneChanged()" class="w-full mt-1 p-3 rounded-lg bg-gray-900 border border-gray-600 text-white" style="min-height:48px">
             <option value="approaching_vehicle">سيارة متحركة تقترب</option>
             <option value="parked_vehicle">سيارة متوقفة وأنت تقترب منها</option>
             <option value="crowd">زحام أشخاص</option>
@@ -254,13 +250,11 @@
             <option value="mixed">مشهد مختلط</option>
           </select>
         </label>
-        <div id="field-scene-instructions" class="rounded-lg bg-slate-900 border border-slate-700 p-3 text-sm leading-relaxed" aria-live="polite">
-          <strong class="text-teal-200">قبل البدء</strong>
-          <p>اختر المشهد، اقرأ تعليماته، ثم ابدأ. نفّذ التجربة في مكان آمن وبوجود مرافق؛ لا تقترب من السيارات المتحركة ولا تختبر على حافة طريق أو درج خطر.</p>
-        </div>
-        <label class="flex items-start gap-2 text-xs text-gray-300 mt-3"><input id="field-consent-check" type="checkbox"><span>أفهم أن التسجيل يتضمن بيانات تقنية عن المشهد والجهاز، ولن أُدخل أسماء أو بيانات شخصية، وسأجري الاختبار في مكان آمن.</span></label>
-        <button id="field-start-button" type="button" onclick="startFieldRecording()" class="settings-action bg-teal-700 hover:bg-teal-600 text-white mt-3">▶ ابدأ جلسة التسجيل الموجهة</button>
-        <button type="button" onclick="exportSavedFieldSessions()" class="settings-action bg-slate-700 hover:bg-slate-600 text-white mt-2">⬇ تصدير التسجيلات المحفوظة على هذا الهاتف</button>
+        <div id="field-scene-instructions" class="rounded-lg bg-slate-900 border border-slate-700 p-3 text-sm leading-relaxed" aria-live="polite"></div>
+        <label class="flex items-start gap-2 text-xs text-gray-300 mt-3"><input id="field-consent-check" type="checkbox"><span>أفهم أن التسجيل يتضمن بيانات تقنية عن المشهد والهاتف (المتصفح والنظام، المعالج والذاكرة، كرت الرسوم، الشاشة، الكاميرا، البطارية، الحساسات)، ولن أُدخل أسماء أو أرقام هواتف أو عناوين، وأنني مسؤول عن السلامة طوال الاختبار.</span></label>
+        <button id="field-start-button" type="button" onclick="startFieldRecording()" class="settings-action bg-teal-700 hover:bg-teal-600 text-white mt-3">▶ ابدأ هذا الاختبار</button>
+        <button type="button" onclick="exportSavedFieldSessions(false)" class="settings-action bg-slate-700 hover:bg-slate-600 text-white mt-2">⬇ تنزيل كل التسجيلات المحفوظة في ملف واحد</button>
+        <button type="button" onclick="exportSavedFieldSessions(true)" class="settings-action bg-blue-800 hover:bg-blue-700 text-white mt-2">📤 مشاركة كل التسجيلات المحفوظة</button>
         <p id="field-recorder-settings-status" class="text-xs text-teal-200 mt-2" role="status"></p>
       </section>
 
@@ -533,37 +527,6 @@
       <button id="mode-grooming" type="button" aria-pressed="false" onclick="setLifeMode('grooming')" data-speak-label="وضع المرآة: الشعر والوجه">💇 المرآة</button>
     </div>
 
-    <section id="field-recorder-panel" class="hidden" aria-label="لوحة تسجيل الاختبار الميداني">
-      <div class="flex items-center justify-between gap-2 mb-2">
-        <strong class="text-teal-200">● تسجيل اختبار سند</strong><span id="field-recorder-elapsed" class="text-xs text-gray-300">00:00</span>
-      </div>
-      <p id="field-recorder-live-instruction" class="text-sm leading-relaxed mb-2">اتبع تعليمات المشهد.</p>
-      <div class="rounded-lg bg-slate-900 p-2 mb-2">
-        <strong class="block text-xs text-teal-200 mb-1">تأكيدات وقياسات المرافق</strong>
-        <button type="button" onclick="markFieldTargetVisible()" class="w-full bg-teal-800 text-white mb-2">👁 العنصر المستهدف ظاهر أمام الكاميرا</button>
-        <div class="grid grid-cols-2 gap-2">
-          <button type="button" onclick="markFieldEvent('false_alarm')" class="bg-amber-800 text-white">إنذار غير صحيح</button>
-          <button type="button" onclick="markFieldEvent('missed_hazard')" class="bg-red-800 text-white">خطر لم يكتشفه</button>
-          <button type="button" onclick="markFieldEvent('real_approach')" class="bg-blue-800 text-white">اقتراب حقيقي</button>
-          <button type="button" onclick="markFieldEvent('scene_note')" class="bg-slate-700 text-white">ملاحظة</button>
-        </div>
-        <div class="grid grid-cols-2 gap-2 mt-2">
-          <label class="text-xs">العنصر المقاس
-            <select id="field-ground-label" class="w-full mt-1 p-2 rounded bg-gray-800 text-white"><option value="car">سيارة</option><option value="person">شخص</option><option value="truck">شاحنة</option><option value="bus">حافلة</option><option value="wall">حائط</option><option value="stairs">سلم</option><option value="curb">حافة رصيف</option><option value="other">أخرى</option></select>
-          </label>
-          <label class="text-xs">المسافة الفعلية (متر)
-            <input id="field-ground-distance" type="number" min="0.2" max="30" step="0.1" placeholder="مثال: 3.0" class="w-full mt-1 p-2 rounded bg-gray-800 text-white" inputmode="decimal">
-          </label>
-        </div>
-        <label class="block text-xs mt-2">طريقة تحديد المسافة
-          <select id="field-ground-method" class="w-full mt-1 p-2 rounded bg-gray-800 text-white"><option value="tape">متر قياس فعلي</option><option value="premeasured-mark">علامة أرضية مقاسة مسبقًا</option><option value="known-fixed-distance">مسافة ثابتة موثقة</option></select>
-        </label>
-        <button type="button" onclick="markFieldGroundTruth()" class="w-full bg-indigo-800 text-white mt-2">📏 تسجيل المسافة المقاسة</button>
-        <p class="text-[11px] text-gray-300 mt-1">لا تسجل مسافة بالتخمين. استخدم شريط قياس أو مسافة معلومة ومحددة مسبقًا، ولا تقترب من طريق أو حافة أو مركبة متحركة.</p>
-      </div>
-      <button type="button" onclick="stopAndExportFieldRecording()" class="w-full bg-teal-700 text-white mt-2">■ فحص الاكتمال ثم إنهاء الجلسة</button>
-    </section>
-
     <div class="relative flex-1 min-h-0">
       <video id="camera-preview" autoplay playsinline muted aria-hidden="true"
              class="absolute top-2 right-2 w-14 h-14 object-cover rounded-lg border border-gray-700 opacity-60 pointer-events-none z-10"></video>
@@ -700,7 +663,7 @@
 
 <script src="mirror_core.js"></script>
 <script src="live_recog_core.js"></script>
-<script src="field_recording_core.js"></script>
+<script src="field_core.js"></script>
 <script>
 const DEFAULT_PUBLIC_PROXY_URL = '';
 
@@ -793,17 +756,10 @@ let phonePitchBeta = null, savedOutfitColor = null;
 
 // مسجل الاختبارات الميدانية: بيانات وصفية فقط، بلا صور/فيديو/صوت وبلا رفع شبكي.
 const FIELD_DB_NAME = 'sanad_field_trials_v1';
-let fieldRecording = null, fieldAutosaveTimer = null, fieldSaveDebounce = null, fieldStartedAt = 0, fieldLastDetectAt = 0, fieldLastMotionAt = 0, fieldLastOrientationAt = 0, fieldLastTorchEvalAt = 0, fieldLastGateLogAt = 0, fieldLastDetectionEventSeq = null, fieldLastArchResultSeq = null, fieldMotionAttached = false, fieldMotionPermission = 'not-requested', fieldStartInProgress = false, fieldLastLifecycleState = 'visible';
-const FIELD_SCENES = {
-  approaching_vehicle: {title:'سيارة متحركة تقترب', instructions:'قف أنت والمرافق في مكان آمن بعيدًا عن مسار السيارات. لا تقف في الطريق ولا تطلب من سائق الاقتراب عمدًا. سجّل مرور سيارة تتحرك في شارع آمن من مسافة مناسبة. كرر مرتين مع اختلاف اتجاه المرور إن أمكن.'},
-  parked_vehicle: {title:'سيارة متوقفة وأنت تقترب منها', instructions:'في موقف سيارات خالٍ وآمن، امشِ ببطء نحو سيارة متوقفة مع المرافق. لا تلمس السيارة ولا تقترب من مسار حركة المركبات. سجّل نقطتين مرجعيتين مختلفتين بمتر قياس أو علامات أرضية مقاسة مسبقًا، مثل 3 م و2 م، ولا تستخدم التخمين. كرر الجلسة مرتين.'},
-  crowd: {title:'زحام أشخاص', instructions:'اختر رصيفًا واسعًا أو مكانًا عامًا آمنًا به حركة مشاة. تحرك ببطء مع المرافق، ولا تزاحم أحدًا. سجّل مرور أشخاص من الأمام والجانبين. كرر مرتين.'},
-  stairs: {title:'سلم أو درجات', instructions:'لا تصعد أو تنزل اعتمادًا على سند. قف مع المرافق عند بداية سلم آمن، ووجّه الهاتف نحو الدرج من موضع ثابت. سجّل منظر الدرج ثم كرر من زاوية آمنة أخرى. لا تختبر حافة الدرج دون حماية. من موضع ثابت وآمن، سجّل مسافتين مختلفتين إلى أول درجة باستخدام قياس فعلي.'},
-  sidewalk_end: {title:'نهاية رصيف أو حافة', instructions:'لا تقترب من حافة شارع أو تسقط قدمك عنها. قف خلف الحافة بمسافة آمنة مع المرافق، ووجّه الكاميرا نحو المشهد مع بقاءك خلف الحافة؛ لا تُحفظ صورة. كرر من موضعين آمنين، وسجّل نقطتي مسافة فعليتين من خلف الحافة فقط دون الاقتراب منها.'},
-  wall: {title:'حائط أو عائق ثابت قريب', instructions:'في ممر داخلي آمن، تحرك ببطء نحو حائط أو عائق ثابت مع المرافق، وتوقف قبل ملامسته. سجّل نقطتي مسافة فعليتين مختلفتين باستخدام متر قياس أو علامات مقاسة. كرر مرتين مع تغيير زاوية الاقتراب.'},
-  low_light: {title:'إضاءة ضعيفة أو ظلام', instructions:'اختبر في مكان داخلي آمن بإضاءة عادية ثم منخفضة تدريجيًا. لا تتحرك في الظلام؛ ابقَ ثابتًا مع المرافق. لا تطفئ إنارة درج أو ممر يستخدمه أشخاص.'},
-  mixed: {title:'مشهد مختلط', instructions:'اختر مكانًا آمنًا يجمع أكثر من عنصر مثل أشخاص وسيارة متوقفة ورصيف. ابقَ مع المرافق وسجّل المشهد من موضع ثابت ثم من حركة بطيئة آمنة.'}
-};
+let fieldRecording = null, fieldAutosaveTimer = null, fieldStartedAt = 0, fieldLastDetectAt = 0, fieldLastMotionAt = 0, fieldLastOrientationAt = 0, fieldMotionAttached = false, fieldMotionPermission = 'not-requested';
+const FIELD_COCO_MAX_BOXES = 50;   // مرشحون أكثر أثناء التسجيل فقط؛ يُمرَّر للمنطق الإنتاجي أول COCO_MAX_BOXES منهم بعد تصفية 0.56
+const FIELD_COCO_FLOOR = 0.25;   // أدنى ثقة تُسجَّل أثناء الاختبار الميداني (قرارات التطبيق تبقى عند 0.56)
+let fieldSkips = {};
 
 
 let barcodeDetector = null;
@@ -1048,7 +1004,7 @@ function attachOrientationListener() {
   window.addEventListener('deviceorientation', ev => {
     if (typeof ev.beta === 'number') phonePitchBeta = ev.beta;
     if (!fieldRecording || fieldClockNow() - fieldLastOrientationAt < 100) return; fieldLastOrientationAt = fieldClockNow();
-    fieldPush('orientation', { beta: Number.isFinite(ev.beta) ? ev.beta : null, gamma: Number.isFinite(ev.gamma) ? ev.gamma : null, alpha: Number.isFinite(ev.alpha) ? ev.alpha : null, absolute: !!ev.absolute });
+    fieldPush('orientation', { beta: Number.isFinite(ev.beta) ? ev.beta : null, gamma: Number.isFinite(ev.gamma) ? ev.gamma : null, alpha: Number.isFinite(ev.alpha) ? ev.alpha : null });
   }, { passive: true });
 }
 function orientationGestureRetry() {
@@ -1146,7 +1102,6 @@ function processSpeechQueue() {
   speechQueueRunning = true;
   assistantSpeaking = true;
   speechPriority = item.priority || 0;
-  if (fieldRecording) fieldPush('speech_playback',{phase:'started',text:String(item.text||'').slice(0,240),language:item.lang,priority:Number(item.priority)||0,voiceName:(item.lang==='en'?englishVoice?.name:arabicVoice?.name)||null});
   const utterance = new SpeechSynthesisUtterance(item.text);
   if (item.lang === 'en') {
     utterance.lang = englishVoice?.lang || 'en-US';
@@ -1157,24 +1112,22 @@ function processSpeechQueue() {
   }
   utterance.rate = 0.94; utterance.pitch = 1.0;
   let finished = false;
-  const finish = (phase) => {
+  const finish = () => {
     if (finished || itemToken !== speechQueueToken) return;
     finished = true;
-    if (fieldRecording) fieldPush('speech_playback',{phase:phase||'ended',text:String(item.text||'').slice(0,240),language:item.lang,priority:Number(item.priority)||0});
     clearSpeechWatchdog(); speechQueueRunning = false;
     if (!speechQueue.length) assistantSpeaking = false;
     processSpeechQueue();
   };
-  utterance.onend = () => finish('ended'); utterance.onerror = () => finish('error');
+  utterance.onend = finish; utterance.onerror = finish;
   const expected = Math.min(45000, Math.max(5000, item.text.length * 190));
-  speechWatchdog = setTimeout(() => finish('watchdog-timeout'), expected);
-  try { window.speechSynthesis.speak(utterance); } catch (e) { finish('speak-call-error'); }
+  speechWatchdog = setTimeout(finish, expected);
+  try { window.speechSynthesis.speak(utterance); } catch (e) { finish(); }
 }
 function speak(text, interrupt = true, priority = 0) {
-  if (fieldRecording && text) fieldPush('speech', { phase:'requested', text: String(text).slice(0, 240), priority: Number(priority) || 0, assistantWasSpeaking: !!assistantSpeaking });
-  if (!('speechSynthesis' in window) || !text) { if(fieldRecording&&text)fieldPush('speech_playback',{phase:'speech-synthesis-unavailable'}); return; }
+  if (fieldRecording && text) fieldPush('speech', { text: String(text).slice(0, 240), priority: Number(priority) || 0, assistantWasSpeaking: !!assistantSpeaking });
+  if (!('speechSynthesis' in window) || !text) return;
   if (interrupt) {
-    if (fieldRecording && (speechQueueRunning || speechQueue.length)) fieldPush('speech_playback',{phase:'interrupted-by-new-utterance',priority:Number(priority)||0});
     speechQueueToken++;
     speechQueue = [];
     speechEnglishFallbackNotified = false;
@@ -1327,7 +1280,7 @@ function updateTorchUI() {
 }
 async function applyTorch(state, silent = false, isAuto = false) {
   if (!videoStream || !torchSupported) return false;
-  try { await videoStream.getVideoTracks()[0].applyConstraints({ advanced: [{ torch: !!state }] }); torchOn = !!state; torchAutoActivated = torchOn ? isAuto : false; if (fieldRecording) fieldPush('torch_state', { on: torchOn, automatic: !!isAuto, supported: !!torchSupported, autoTorchEnabled: !!autoTorchEnabled }); updateTorchUI(); if (!silent) speak(torchOn ? 'تم تشغيل الكشاف.' : 'تم إطفاء الكشاف.'); return true; }
+  try { await videoStream.getVideoTracks()[0].applyConstraints({ advanced: [{ torch: !!state }] }); torchOn = !!state; torchAutoActivated = torchOn ? isAuto : false; updateTorchUI(); if (fieldRecording) fieldPush('torch', { on: torchOn, auto: torchAutoActivated }); if (!silent) speak(torchOn ? 'تم تشغيل الكشاف.' : 'تم إطفاء الكشاف.'); return true; }
   catch (e) { return false; }
 }
 async function toggleTorch() { if (!torchSupported) { const m = 'الكشاف غير مدعوم هنا.'; updateStatus(m); speak(m); return; } torchManualOverride = true; await applyTorch(!torchOn, false, false); }
@@ -1362,7 +1315,6 @@ function probeFrameQuality(source = videoElement) {
 async function evaluateContinuousAutoTorch(q) {
   if (!q || facingMode !== 'environment' || !torchSupported || isProcessing) return;
   const now = Date.now();
-  if (fieldRecording && fieldClockNow()-fieldLastTorchEvalAt>=1000) { fieldLastTorchEvalAt=fieldClockNow(); fieldPush('torch_evaluation',{meanLuminance:Number(q.meanY.toFixed(1)),sharpness:Number(q.sharpness.toFixed(2)),lensCovered:!!q.isLensCovered,isDim:!!q.isDim,autoEnabled:!!autoTorchEnabled,manualOverride:!!torchManualOverride,torchOn:!!torchOn,torchAutoActivated:!!torchAutoActivated,darkStreak,brightStreak}); }
   if (q.isLensCovered) {
     darkStreak = 0;
     if (torchOn && torchAutoActivated) await applyTorch(false, true, false);
@@ -2637,7 +2589,7 @@ function estimateObjectDistance(pred, vw, vh) {
   const meta = LOCAL_OBJECT_MAP[pred.class]; if (!meta || !pred.bbox || !vw || !vh) return null;
   const [bx, by, bw, bh] = pred.bbox;
   const topTouch = by <= vh * 0.03, botTouch = (by + bh) >= vh * 0.97;
-  if (topTouch && botTouch) return { meters: 0.7, steps: 1, text: 'قريب جداً (أقل من خطوتين)' };
+  if (topTouch && botTouch) return { meters: 0.7, raw: 0.7, steps: 1, text: 'قريب جداً (أقل من خطوتين)' };
   const isPortrait = vh > vw, tanHalfV = isPortrait ? 0.65 : 0.50, tanHalfH = tanHalfV * (vw / vh);
   let distM = null;
   if (meta.h && !topTouch && !botTouch) distM = (meta.h * vh) / (2 * Math.max(1, bh) * tanHalfV);
@@ -2646,10 +2598,10 @@ function estimateObjectDistance(pred, vw, vh) {
   if (!distM || !isFinite(distM)) return null;
   distM = Math.max(0.4, Math.min(20, distM * 0.92));
   const steps = Math.max(1, Math.round(distM / STEP_METERS));
-  if (distM < 1.0) return { meters: distM, steps: 1, text: 'قريب جداً (نحو خطوة)' };
-  if (distM < 1.8) return { meters: distM, steps: 2, text: 'نحو خطوتين (متر ونصف)' };
+  if (distM < 1.0) return { meters: distM, raw: distM, steps: 1, text: 'قريب جداً (نحو خطوة)' };
+  if (distM < 1.8) return { meters: distM, raw: distM, steps: 2, text: 'نحو خطوتين (متر ونصف)' };
   const mr = Math.round(distM * 2) / 2;
-  return { meters: mr, steps, text: 'نحو ' + steps + (steps <= 10 ? ' خطوات' : ' خطوة') + ' (' + mr + ' متر)' };
+  return { meters: mr, raw: distM, steps, text: 'نحو ' + steps + (steps <= 10 ? ' خطوات' : ' خطوة') + ' (' + mr + ' متر)' };
 }
 
 function notifyCocoLoadFailure(msg) {
@@ -2695,36 +2647,41 @@ function rankLocalObjects(preds, vw, vh) {
 }
 
 async function liveMonitorTick() {
-  if (isProcessing || isListening || isScanningFrame) return;
+  if (isProcessing || isListening || isScanningFrame) { if (fieldRecording) fieldSkipNote(isProcessing ? 'busy_processing' : (isListening ? 'listening' : 'previous_scan_running')); return; }
   if (!videoElement || videoElement.paused || videoElement.ended || videoElement.videoWidth === 0) return;
   const q = probeFrameQuality();
   await evaluateContinuousAutoTorch(q);
   if (!navModeEnabled || !localScanEnabled || lifeMode === 'grooming' || lifeMode === 'clothes') return;
   if (!objectModel) {
+    if (fieldRecording) fieldSkipNote('no_model');
     // فشل تحميل سابق: نعيد المحاولة بفاصل ثابت بدل التعطل الدائم
     if (!objectModelLoading && (Date.now() - lastCocoLoadAttempt) > COCO_RETRY_MS) initLocalObjectEngine();
     return;
   }
   if (!assistantSpeaking && lifeMode === 'walk' && phonePitchBeta !== null && (Date.now() - lastTiltWarnTime) > 14000) {
-    if (phonePitchBeta > 112) { lastTiltWarnTime = Date.now(); speak('الكاميرا متجهة للأعلى؛ أمِل الهاتف للأمام قليلاً ليرى الطريق.', false); return; }
-    if (phonePitchBeta < 18)  { lastTiltWarnTime = Date.now(); speak('الكاميرا تنظر لأسفل جداً؛ ارفعها قليلاً.', false); return; }
+    if (phonePitchBeta > 112) { lastTiltWarnTime = Date.now(); fieldSkipNote('tilt_warning'); speak('الكاميرا متجهة للأعلى؛ أمِل الهاتف للأمام قليلاً ليرى الطريق.', false); return; }
+    if (phonePitchBeta < 18)  { lastTiltWarnTime = Date.now(); fieldSkipNote('tilt_warning'); speak('الكاميرا تنظر لأسفل جداً؛ ارفعها قليلاً.', false); return; }
   }
   isScanningFrame = true;
   try {
     // الرصد يستمر أثناء كلام المساعد (كان يتوقف فيُترك المستخدم بلا رصد طوال الجملة)؛ الذي يُنطق أثناء الكلام هو الاقتراب العاجل فقط
     const vw = videoElement.videoWidth, vh = videoElement.videoHeight;
     const detectStarted = fieldClockNow();
-    const rawPreds = await objectModel.detect(videoElement, 50, 0.25);
-    const preds = (rawPreds || []).filter(p => Number(p.score) >= 0.56).slice(0, COCO_MAX_BOXES); // نفس مدخلات منطق الإنتاج السابقة؛ التسجيل وحده يرى الثقة الأقل
+    const rawPreds = await objectModel.detect(videoElement, fieldRecording ? FIELD_COCO_MAX_BOXES : COCO_MAX_BOXES, fieldRecording ? FIELD_COCO_FLOOR : 0.56);
     const detectMs = fieldClockNow() - detectStarted;
+    const preds = fieldRecording ? (rawPreds || []).filter(p => p.score >= 0.56).slice(0, COCO_MAX_BOXES) : rawPreds;   // قرارات التطبيق لا تتغير أثناء التسجيل
     cocoLastDetectMs = Math.round(detectMs * 10) / 10; cocoEmaDetectMs = cocoDetectSamples ? (cocoEmaDetectMs * 0.75 + detectMs * 0.25) : detectMs; cocoDetectSamples++;
     const detectCompletedAt = fieldClockNow(); cocoLastGapMs = cocoLastDetectAt ? Math.round((detectCompletedAt - cocoLastDetectAt) * 10) / 10 : null; if (cocoLastGapMs !== null) cocoEmaGapMs = cocoDetectSamples > 1 ? (cocoEmaGapMs * 0.75 + cocoLastGapMs * 0.25) : cocoLastGapMs; cocoLastDetectAt = detectCompletedAt;
     if (fieldRecording) {
       const readAt = fieldClockNow();
-      fieldLastDetectionEventSeq = fieldPush('detection', { detectMs: Math.round(detectMs * 10) / 10, gapSincePreviousDetectMs: fieldLastDetectAt ? Math.round((readAt - fieldLastDetectAt) * 10) / 10 : null, frameWidth: vw, frameHeight: vh, frameQuality: q ? { meanLuminance: Math.round(q.meanY * 10) / 10, sharpness: Math.round(q.sharpness * 100) / 100, lightLabel: q.lightLabel, lensCovered: !!q.isLensCovered } : null, productionThreshold: 0.56, recordingThreshold: 0.25, productionAcceptedCount: preds.length, rawPredictionCount: (rawPreds || []).length, torch: { supported: !!torchSupported, on: !!torchOn, autoEnabled: !!autoTorchEnabled, autoActivated: !!torchAutoActivated }, predictions: (rawPreds || []).map(p => {
-        const d = LOCAL_OBJECT_MAP[p.class] ? estimateObjectDistance(p, vw, vh) : null;
-        return { class: p.class, score: Number(p.score) || 0, acceptedForProduction: Number(p.score) >= 0.56, bboxPixels: Array.isArray(p.bbox) ? p.bbox.map(v => Math.round(v * 1000) / 1000) : null, bboxNormalized: window.SanadFieldCore?.normalizeBox(p.bbox, vw, vh) || null, relativePosition: Array.isArray(p.bbox) ? getRelativePositionArabic(p.bbox, vw) : null, estimatedDistanceMeters: d && Number.isFinite(d.meters) ? d.meters : null, estimatedSteps: d && Number.isFinite(d.steps) ? d.steps : null };
-      }) });
+      fieldPush('detection', { detectMs: Math.round(detectMs * 10) / 10, gapSincePreviousDetectMs: fieldLastDetectAt ? Math.round((readAt - fieldLastDetectAt) * 10) / 10 : null, frameWidth: vw, frameHeight: vh,
+        scoreFloor: FIELD_COCO_FLOOR, appThreshold: 0.56, maxBoxesRecording: FIELD_COCO_MAX_BOXES, maxBoxesProduction: COCO_MAX_BOXES, candidates: (rawPreds || []).length, pitchBeta: phonePitchBeta, lifeMode, assistantSpeaking: !!assistantSpeaking, skipped: fieldTakeSkips(),
+        frameQuality: q ? { meanLuminance: Math.round(q.meanY * 10) / 10, sharpness: Math.round(q.sharpness * 100) / 100, lightLabel: q.lightLabel, lensCovered: !!q.isLensCovered, torchOn: !!torchOn, torchAuto: !!torchAutoActivated } : null,
+        predictions: (rawPreds || []).map(p => {
+          const known = !!LOCAL_OBJECT_MAP[p.class], d = known ? estimateObjectDistance(p, vw, vh) : null;
+          return { class: p.class, score: Number(p.score) || 0, bbox: Array.isArray(p.bbox) ? p.bbox.map(v => Math.round(v * 10) / 10) : null, bboxNorm: Array.isArray(p.bbox) && vw && vh ? [p.bbox[0] / vw, p.bbox[1] / vh, p.bbox[2] / vw, p.bbox[3] / vh].map(v => Math.round(v * 10000) / 10000) : null, relativePosition: Array.isArray(p.bbox) ? getRelativePositionArabic(p.bbox, vw) : null, known, passedAppThreshold: p.score >= 0.56,
+            estimatedDistanceMeters: d && Number.isFinite(d.meters) ? d.meters : null, rawDistanceMeters: d && Number.isFinite(d.raw) ? Math.round(d.raw * 100) / 100 : null, estimatedSteps: d && Number.isFinite(d.steps) ? d.steps : null };
+        }) });
       fieldLastDetectAt = readAt;
     }
     if (cocoDetectFails >= 3) localScannerBadge.textContent = 'الأجسام والمسافة: نشط';
@@ -2739,35 +2696,34 @@ async function liveMonitorTick() {
         if (!center || a > center.area) center = { r, area: a };
       }
     }
-    let loomingUrgent = false;
-    const previousCenterThreat = prevCenterThreat;
+    let loomingUrgent = false, fieldGrowth = null;
     if (center) {
       const cls = center.r.p.class;
-      if (previousCenterThreat && previousCenterThreat.cls === cls && (now - previousCenterThreat.t) < 2000 && previousCenterThreat.area > 0 && ((center.area - previousCenterThreat.area) / previousCenterThreat.area) >= 0.34) loomingUrgent = true;
+      if (prevCenterThreat && prevCenterThreat.cls === cls && (now - prevCenterThreat.t) < 2000 && prevCenterThreat.area > 0) fieldGrowth = Math.round(((center.area - prevCenterThreat.area) / prevCenterThreat.area) * 1000) / 1000;
+      if (prevCenterThreat && prevCenterThreat.cls === cls && (now - prevCenterThreat.t) < 2000 && prevCenterThreat.area > 0 && ((center.area - prevCenterThreat.area) / prevCenterThreat.area) >= 0.34) loomingUrgent = true;
       prevCenterThreat = { cls, area: center.area, t: now };
     } else prevCenterThreat = null;
-    if (!ranked.length) { if (fieldRecording) fieldPush('alert_decision', { detectionSeq:fieldLastDetectionEventSeq, candidate: false, loomingUrgent: false, reason: 'no-ranked-known-object-above-0.56', productionAcceptedCount:preds.length, assistantSpeaking: !!assistantSpeaking }); return; }
+    if (!ranked.length) return;
     const pick = loomingUrgent ? center.r : ranked[0], top = pick.p, meta = pick.meta, dist = pick.dist;
     const pos = getRelativePositionArabic(top.bbox, vw);
     const key = (loomingUrgent ? 'LOOM_' : 'obj_') + top.class + '_' + pos;
-    const cooldownActive = key === lastHazardAlertKey && (now - lastHazardAlertTime) <= 6500;
-    const suppressionReasons = [];
+    const prevAlertAt = lastHazardAlertTime;
+    const fdn = (action, reason, said) => { if (!fieldRecording) return; fieldPush('decision', { action, reason, said: said ? String(said).slice(0, 200) : null, key, looming: loomingUrgent, centerAreaGrowth: fieldGrowth, assistantSpeaking: !!assistantSpeaking, sinceLastAlertMs: prevAlertAt ? now - prevAlertAt : null,
+      pick: { class: top.class, score: Number(top.score) || 0, position: pos, meters: dist && Number.isFinite(dist.meters) ? dist.meters : null, steps: dist ? dist.steps : null, priority: meta.priority },
+      ranked: ranked.slice(0, 3).map(r => ({ class: r.p.class, priority: r.meta.priority, meters: r.dist && Number.isFinite(r.dist.meters) ? r.dist.meters : null })) }); };
     if (assistantSpeaking) {
-      if (!loomingUrgent) suppressionReasons.push('assistant-speaking-nonurgent');
-      else if (urgentSpeechActive() && key === lastHazardAlertKey) suppressionReasons.push('same-urgent-alert-already-speaking');
+      if (!loomingUrgent) { fdn('suppressed', 'assistant_speaking'); return; }                                   // غير العاجل ينتظر انتهاء الكلام
+      if (urgentSpeechActive() && key === lastHazardAlertKey) { fdn('suppressed', 'same_urgent_alert_speaking'); return; } // نفس التنبيه العاجل يُنطق الآن؛ لا نقطعه ونعيده
     }
-    if (!loomingUrgent && cooldownActive) suppressionReasons.push('same-alert-cooldown-6500ms');
-    const suppressionReason = suppressionReasons.length ? suppressionReasons.join('|') : null;
-    if (fieldRecording) fieldPush('alert_decision', { detectionSeq:fieldLastDetectionEventSeq, candidate: true, class: top.class, score: Number(top.score) || 0, position: pos, estimatedDistanceMeters: dist && dist.meters || null, estimatedSteps: dist && dist.steps || null, loomingUrgent, previousArea: previousCenterThreat && previousCenterThreat.area || null, previousClass:previousCenterThreat&&previousCenterThreat.cls||null, previousTimestamp:previousCenterThreat&&previousCenterThreat.t||null, currentArea: center && center.area || null, assistantSpeaking: !!assistantSpeaking, urgentSpeechActive: !!urgentSpeechActive(), cooldownActive, suppressionReason, suppressionReasons, willAnnounce: !suppressionReason });
-    if (!suppressionReason) {
+    if (loomingUrgent || key !== lastHazardAlertKey || (now - lastHazardAlertTime) > 6500) {
       lastHazardAlertKey = key; lastHazardAlertTime = now;
       const urgent = loomingUrgent || meta.priority >= 3 || (dist && dist.steps <= 2);
       playSpatialBeep(sideFromPosition(pos), urgent);
       vibrate(loomingUrgent ? [120, 45, 120, 45, 120] : (urgent ? [85, 55, 85] : [35]));
       const msg = loomingUrgent ? ('انتبه! ' + meta.ar + ' تقترب منك بسرعة ' + (dist ? ('— ' + dist.text) : '') + '!') : (meta.ar + ' ' + pos + (dist ? (' — ' + dist.text) : '') + '.');
-      if (fieldRecording) fieldPush('vision_announcement', { source:'coco', detectionSeq:fieldLastDetectionEventSeq, class:top.class, score:Number(top.score)||0, position:pos, loomingUrgent, estimatedDistanceMeters:dist&&dist.meters||null, text:msg, priority:loomingUrgent?2:(urgent?1:0) });
+      fdn('spoken', loomingUrgent ? 'looming' : (urgent ? 'urgent' : 'normal'), msg);
       updateStatus(msg); updateRiskIndicator(urgent ? 'يستلزم الحذر' : 'لم يظهر خطر واضح في الصورة'); speak(msg, true, loomingUrgent ? 2 : 0);
-    }
+    } else fdn('suppressed', 'duplicate_within_6.5s');
   } catch (e) {
     if (fieldRecording) fieldPush('detection_error', { name: String(e && e.name || 'Error').slice(0, 80), message: String(e && e.message || e).slice(0, 180) });
     // لا فشل صامت: بعد 3 أخطاء متتالية نُعلن بالصوت (مرة كل دقيقة) ونُحدّث الشارة
@@ -3851,86 +3807,14 @@ async function saveSettings(event) {
 
 async function startFreeMode() { await startApp(true); }
 
-function fieldDbOpen() { return new Promise((resolve, reject) => { const req = indexedDB.open(FIELD_DB_NAME, 2); req.onupgradeneeded = () => { if (!req.result.objectStoreNames.contains('sessions')) req.result.createObjectStore('sessions', { keyPath: 'id' }); }; req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); }); }
+// مسجل الاختبار الميداني: الأدوات الصغيرة هنا، والمنطق في field_core.js والواجهة في field_ui.js
 function fieldClockNow() { return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now(); }
-function fieldPush(type, data) { if (!fieldRecording) return null; const seq=fieldRecording.events.length; fieldRecording.events.push({ seq, t: Math.round(fieldClockNow() - fieldStartedAt), wallTime: new Date().toISOString(), type, data }); if (fieldSaveDebounce) clearTimeout(fieldSaveDebounce); fieldSaveDebounce = setTimeout(() => saveFieldSession(false).catch(() => {}), 1200); return seq; }
-async function fieldDeviceInfo() {
-  const track = videoStream?.getVideoTracks?.()[0]; let settings = {}, caps = {}, constraints = {};
-  try { settings = track?.getSettings?.() || {}; } catch(e) {}
-  try { caps = track?.getCapabilities?.() || {}; } catch(e) {}
-  try { constraints = track?.getConstraints?.() || {}; } catch(e) {}
-  const safeConstraints = Object.assign({}, constraints); delete safeConstraints.deviceId; delete safeConstraints.groupId;
-  let uaHints = null;
-  try { if (navigator.userAgentData?.getHighEntropyValues) uaHints = await navigator.userAgentData.getHighEntropyValues(['architecture','bitness','model','platformVersion','uaFullVersion']); } catch(e) {}
-  let storage = null;
-  try { storage = navigator.storage?.estimate ? await navigator.storage.estimate() : null; } catch(e) {}
-  return { userAgent: navigator.userAgent || null, userAgentData: uaHints, platform: navigator.platform || null, vendor: navigator.vendor || null, language: navigator.language || null, languages: Array.from(navigator.languages || []), cores: navigator.hardwareConcurrency || null, deviceMemoryGB: navigator.deviceMemory || null, maxTouchPoints: navigator.maxTouchPoints || 0, screen: { width: screen.width, height: screen.height, availWidth: screen.availWidth, availHeight: screen.availHeight, pixelRatio: devicePixelRatio || 1, colorDepth: screen.colorDepth || null, orientation: screen.orientation?.type || null }, viewport: { width: innerWidth, height: innerHeight }, camera: { width: settings.width || null, height: settings.height || null, frameRate: settings.frameRate || null, aspectRatio: settings.aspectRatio || null, facingMode: settings.facingMode || facingMode, deviceIdAvailable: !!settings.deviceId, torchSupported: !!caps.torch, focusMode: settings.focusMode || null, constraints:safeConstraints }, storage: storage ? { quotaBytes: storage.quota || null, usageBytes: storage.usage || null } : null, manualMaker: document.getElementById('field-device-maker')?.value.trim() || null, manualModel: document.getElementById('field-device-model')?.value.trim() || null, manualOsVersion: document.getElementById('field-os-version')?.value.trim() || null, browserModelAvailability: uaHints?.model ? 'browser-exposed' : 'manual-entry' };
-}
-async function fieldReadSessions() { const db = await fieldDbOpen(); try { return await new Promise((resolve,reject) => { const tx=db.transaction('sessions','readonly'); const req=tx.objectStore('sessions').getAll(); req.onsuccess=()=>resolve(req.result||[]); req.onerror=()=>reject(req.error); }); } finally { db.close(); } }
-function updateFieldSceneInstructions() { const sel = document.getElementById('field-scene-select'), box = document.getElementById('field-scene-instructions'); if (!sel || !box) return; const sc = FIELD_SCENES[sel.value]; box.innerHTML = '<strong class="text-teal-200">' + sc.title + '</strong><p class="mt-1">' + sc.instructions + '</p><p class="mt-2 text-amber-200">المطلوب: جلستان منفصلتان صالحتان على الأقل لهذا المشهد. مدة كل جلسة 15–30 ثانية. لا تنفذ أي حركة غير آمنة.</p>'; }
-document.getElementById('field-scene-select')?.addEventListener('change', updateFieldSceneInstructions);
-async function startFieldRecording() {
-  if (fieldRecording || fieldStartInProgress) { document.getElementById('field-recorder-settings-status').textContent = 'هناك جلسة تسجيل مفتوحة بالفعل. أنهها أو احفظها قبل بدء جلسة جديدة.'; return; }
-  fieldStartInProgress = true;
-  const startButton = document.getElementById('field-start-button'); if (startButton) startButton.disabled = true;
-  const codeEl = document.getElementById('field-participant-code'), sceneEl = document.getElementById('field-scene-select'), consent = document.getElementById('field-consent-check'), status = document.getElementById('field-recorder-settings-status');
-  try {
-    const participant = String(codeEl?.value || '').trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 20);
-    const model = document.getElementById('field-device-model')?.value.trim() || '';
-    if (!participant) { status.textContent = 'اكتب رمز مشارك غير شخصي أولًا، مثل P03.'; codeEl?.focus(); return; }
-    if (!model) { status.textContent = 'اكتب طراز الهاتف قبل البدء؛ مثال: iPhone 15 Pro أو Samsung Galaxy S24.'; document.getElementById('field-device-model')?.focus(); return; }
-    if (!consent?.checked) { status.textContent = 'يرجى تأكيد تعليمات الخصوصية والسلامة قبل البدء.'; return; }
-    if (!navigator.mediaDevices?.getUserMedia) { status.textContent = 'يحتاج تشغيل الكاميرا إلى HTTPS أو localhost.'; return; }
-    if (!localScanEnabled || !navModeEnabled) { status.textContent = 'قبل التسجيل، فعّل «رصد الأجسام والمسافة بالخطوات» و«تنبيهات السير المستمرة».'; return; }
-    const scene = sceneEl.value, sc = FIELD_SCENES[scene];
-    const needsSeg = ['stairs','sidewalk_end','wall','mixed'].includes(scene);
-    if (needsSeg && (!liveArchEnabled || !isSavedFlag(LS_SEG_READY) || liveRecog.off.seg)) { status.textContent = 'هذا المشهد يحتاج نموذج المكان SegFormer جاهزًا ومفعّلًا. حمّله وفعّل «تنبيهات المكان». إذا كان متوقفًا بسبب بطء الجهاز، أعد تفعيله من الإعدادات أو استخدم جهازًا آخر؛ لا تبدأ جلسة ناقصة لهذا المشهد.'; return; }
-    try { if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') { const permission = await DeviceMotionEvent.requestPermission(); fieldMotionPermission = permission === 'granted' ? 'granted' : 'denied'; } } catch (e) { fieldMotionPermission = 'unavailable-or-denied'; }
-    if (!fieldMotionAttached && typeof window.DeviceMotionEvent !== 'undefined') {
-      window.addEventListener('devicemotion', ev => { if (!fieldRecording || fieldClockNow() - fieldLastMotionAt < 80) return; fieldLastMotionAt = fieldClockNow(); const a=ev.accelerationIncludingGravity||{}, n=ev.acceleration||{}, r=ev.rotationRate||{}; fieldPush('motion',{gravity:{x:Number.isFinite(a.x)?a.x:null,y:Number.isFinite(a.y)?a.y:null,z:Number.isFinite(a.z)?a.z:null},linear:{x:Number.isFinite(n.x)?n.x:null,y:Number.isFinite(n.y)?n.y:null,z:Number.isFinite(n.z)?n.z:null},rotation:{alpha:Number.isFinite(r.alpha)?r.alpha:null,beta:Number.isFinite(r.beta)?r.beta:null,gamma:Number.isFinite(r.gamma)?r.gamma:null},interval:Number.isFinite(ev.interval)?ev.interval:null}); }, {passive:true}); fieldMotionAttached=true;
-    }
-    setLifeMode('walk', true); await startApp(true); await initLocalObjectEngine();
-    if (!videoStream || !videoElement.videoWidth || !objectModel) { status.textContent = 'لم تجهز الكاميرا أو نموذج COCO-SSD بعد. تأكد من إذن الكاميرا والاتصال الأولي ثم أعد المحاولة.'; return; }
-    if (needsSeg && !segReady) { const until=Date.now()+20000; while(!segReady&&Date.now()<until) await new Promise(r=>setTimeout(r,250)); }
-    if (needsSeg && !segReady) { status.textContent = 'نموذج SegFormer لم يصبح جاهزًا بعد. انتظر اكتمال التحميل من الإعدادات ثم أعد المحاولة.'; return; }
-    const previous = await fieldReadSessions();
-    const priorValid = previous.filter(x => x.participantCode === participant && x.scene === scene && x.quality?.validForAnalysis).length;
-    const trialNumber = priorValid + 1;
-    const deviceInfo = await fieldDeviceInfo();
-    fieldStartedAt = fieldClockNow(); fieldLastDetectAt = 0; fieldLastMotionAt = 0; fieldLastOrientationAt = 0; fieldLastTorchEvalAt = 0; fieldLastGateLogAt = 0; fieldLastDetectionEventSeq = null; fieldLastArchResultSeq = null;
-    fieldRecording = { schema:'sanad-field-session-v2', id:'sf_'+Date.now()+'_'+Math.random().toString(36).slice(2,8), participantCode:participant, scene, sceneTitle:sc.title, trialNumber, requiredValidTrials:2, startedAt:new Date().toISOString(), device:deviceInfo, sensors:{ deviceMotionPermission:fieldMotionPermission, deviceOrientationAvailable:!!window.DeviceOrientationEvent, deviceMotionAvailable:!!window.DeviceMotionEvent, orientationPermissionState:orientationDenied?'denied':(orientationAttached?'attached':'unknown') }, app:{ version:'V20.13-field2', localScanEnabled, navModeEnabled, liveArchEnabled, liveHazardEnabled, liveItemsEnabled, segReady, embedReady, segDisabled:!!liveRecog.off.seg, embedDisabled:!!liveRecog.off.embed, hazardPoolSize:hazardPool.length, personalItemsCount:personalItems?.length??null, autoTorchEnabled, torchSupported:!!torchSupported, torchInitiallyOn:!!torchOn, cocoModelReady:!!objectModel, cameraFacing:facingMode }, notes:'No image, video, or audio content is stored. Technical event metadata only.', events:[] };
-    fieldPush('session_started',{scene,participantCode:participant,trialNumber,requiredValidTrials:2});
-    fieldPush('configuration_snapshot',{app:fieldRecording.app,sensors:fieldRecording.sensors,device:fieldRecording.device});
-    document.getElementById('field-recorder-panel')?.classList.remove('hidden');
-    document.getElementById('field-recorder-live-instruction').textContent = (trialNumber<=2?('الجلسة '+trialNumber+' من جلستين صالحتين. '):'هذه جلسة إضافية بعد استكمال الحد الأدنى. ')+sc.instructions+' بعد توجيه الكاميرا اضغط «العنصر ظاهر أمام الكاميرا». مدة التسجيل 15–30 ثانية.';
-    if (fieldAutosaveTimer) clearInterval(fieldAutosaveTimer);
-    fieldAutosaveTimer=setInterval(()=>saveFieldSession(false).catch(()=>{}),2000);
-    speak('بدأ تسجيل الاختبار. '+sc.instructions,true); updateFieldElapsed();
-    status.textContent='بدأت الجلسة '+trialNumber+' من جلستين مطلوبتين لهذا المشهد.';
-  } catch(e) { status.textContent='تعذر بدء التسجيل: '+(e?.message||e); }
-  finally { fieldStartInProgress=false; if(startButton) startButton.disabled=false; }
-}
-function updateFieldElapsed() { const el=document.getElementById('field-recorder-elapsed'); if(el&&fieldRecording){const sec=Math.floor((fieldClockNow()-fieldStartedAt)/1000);el.textContent=String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');} if(fieldRecording) requestAnimationFrame(updateFieldElapsed); }
-function markFieldTargetVisible() { if(!fieldRecording)return; fieldPush('target_visible',{scene:fieldRecording.scene,confirmedBy:'sighted-companion'}); const el=document.getElementById('field-recorder-live-instruction'); if(el)el.textContent='تم تأكيد ظهور العنصر. استمر في الرصد 15–30 ثانية، وسجّل أي إنذار أو خطر فائت.'; }
-function markFieldEvent(kind) { if(!fieldRecording)return; fieldPush('participant_marker',{kind}); const labels={false_alarm:'تم تسجيل إنذار غير صحيح.',missed_hazard:'تم تسجيل خطر لم يكتشفه التطبيق.',real_approach:'تم تسجيل حالة اقتراب حقيقية.',scene_note:'تم تسجيل ملاحظة زمنية.'};const el=document.getElementById('field-recorder-live-instruction');if(el)el.textContent=labels[kind]+' إن أمكن، أضف مسافة فعلية أو ملاحظة واضحة.'; }
-function markFieldGroundTruth() { if(!fieldRecording)return; const label=document.getElementById('field-ground-label')?.value||'other', input=document.getElementById('field-ground-distance'), meters=Number(input?.value), method=document.getElementById('field-ground-method')?.value||'tape'; if(!Number.isFinite(meters)||meters<0.2||meters>30){alert('أدخل مسافة فعلية بين 0.2 و30 مترًا. لا تستخدم التخمين.');input?.focus();return;} fieldPush('ground_truth_distance',{label,meters,method,measuredBy:'sighted-companion',relatedDetectionSeq:fieldLastDetectionEventSeq}); input.value=''; const el=document.getElementById('field-recorder-live-instruction');if(el)el.textContent='تم تسجيل المسافة المرجعية '+meters+' متر للعنصر '+label+'.'; }
-async function saveFieldSession(finalize) { if(!fieldRecording)return;const snapshot=JSON.parse(JSON.stringify(fieldRecording));snapshot.updatedAt=new Date().toISOString();if(finalize)snapshot.completed=true;const db=await fieldDbOpen();try{await new Promise((resolve,reject)=>{const tx=db.transaction('sessions','readwrite');tx.objectStore('sessions').put(snapshot);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});}finally{db.close();} }
-async function stopAndExportFieldRecording() {
-  if(!fieldRecording)return;
-  const durationMs=Math.round(fieldClockNow()-fieldStartedAt);fieldRecording.durationMs=durationMs;
-  const quality=window.SanadFieldCore.evaluateSession(fieldRecording);
-  if(!quality.validForAnalysis){const missing=quality.issues.map(x=>'• '+x.message).join('\n');const proceed=confirm('لم تكتمل متطلبات هذه الجلسة، ولذلك لن تُعتمد للتحليل.\n\n'+missing+'\n\nاضغط «موافق» لحفظها كجلسة ناقصة وتكرار الاختبار لاحقًا، أو «إلغاء» للعودة واستكمال القياسات الآن.');if(!proceed){delete fieldRecording.durationMs;return;} }
-  fieldPush('session_ended',{qualityStatus:quality.status});
-  if(fieldAutosaveTimer){clearInterval(fieldAutosaveTimer);fieldAutosaveTimer=null;}if(fieldSaveDebounce){clearTimeout(fieldSaveDebounce);fieldSaveDebounce=null;}
-  const finalData=JSON.parse(JSON.stringify(fieldRecording));finalData.endedAt=new Date().toISOString();finalData.durationMs=durationMs;finalData.completed=true;finalData.quality=quality;finalData.sessionStatus=quality.status;
-  try{const db=await fieldDbOpen();try{await new Promise((resolve,reject)=>{const tx=db.transaction('sessions','readwrite');tx.objectStore('sessions').put(finalData);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});}finally{db.close();}}catch(e){alert('تعذر حفظ الجلسة محليًا: '+(e.message||e)+'\nلن يتم حذف بيانات الجلسة من الشاشة.');return;}
-  downloadFieldJson(finalData,finalData.id+'.json');fieldRecording=null;document.getElementById('field-recorder-panel')?.classList.add('hidden');const st=document.getElementById('field-recorder-settings-status');if(st)st.textContent=quality.validForAnalysis?(finalData.trialNumber<2?'الجلسة مكتملة مبدئيًا. سجّل جلسة ثانية صالحة مستقلة لهذا المشهد.':'اكتملت جلستان صالحتان لهذا المشهد مبدئيًا. يمكنك الانتقال إلى المشهد التالي.'):'حُفظت الجلسة كناقصة ولم تُعتمد للتحليل. راجع النواقص وأعد المشهد.';speak(quality.validForAnalysis?(finalData.trialNumber<2?'اكتملت الجلسة الأولى. أعد المشهد مرة ثانية.':'اكتملت جلستان لهذا المشهد. انتقل للمشهد التالي.'):'التسجيل غير مكتمل. يرجى إعادة الاختبار بعد استكمال القياسات.');
-}
-function downloadFieldJson(data,filename){const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);}
-async function exportSavedFieldSessions(){try{const stored=await fieldReadSessions();if(!stored.length){document.getElementById('field-recorder-settings-status').textContent='لا توجد جلسات محفوظة على هذا الهاتف بعد.';return;}const all=stored.map(x=>{if(!x.quality){const quality=window.SanadFieldCore.evaluateSession(x);return Object.assign({},x,{quality,sessionStatus:x.completed?quality.status:'interrupted',legacySchema:true});}return x;});const report={schema:'sanad-field-export-v2',exportedAt:new Date().toISOString(),sessionCount:all.length,validCount:all.filter(x=>x.quality?.validForAnalysis).length,incompleteCount:all.filter(x=>!x.quality?.validForAnalysis).length,sessions:all};downloadFieldJson(report,'sanad-field-sessions-v2.json');document.getElementById('field-recorder-settings-status').textContent='تم تجهيز '+all.length+' جلسة؛ المكتملة '+report.validCount+' والناقصة/القديمة '+report.incompleteCount+'.';}catch(e){document.getElementById('field-recorder-settings-status').textContent='تعذر قراءة التسجيلات المحلية: '+(e.message||e);}}
+function fieldPush(type, data) { if (!fieldRecording) return null; const ev = { t: Math.round(fieldClockNow() - fieldStartedAt), wallTime: new Date().toISOString(), type, data }; fieldRecording.events.push(ev); return ev; }
+function fieldSkipNote(reason) { fieldSkips[reason] = (fieldSkips[reason] || 0) + 1; }
+function fieldTakeSkips() { const s = fieldSkips; fieldSkips = {}; return s; }
 
 function openSettings() {
-  if (fieldRecording) { stopAndExportFieldRecording(); return; }
+  if (fieldRecording) { if (typeof fwRender === 'function') fwRender(); return; }
   stopSpeaking(); stopVoiceRecognition(); stopLiveMonitoring(); stopCamera();
   proxyUrlInput.value = proxyUrl; apiKeyInput.value = apiKey; providerSelect.value = provider;
   populateModelsForProvider(); modelInput.value = PROVIDERS[provider].models[modelName] ? modelName : PROVIDERS[provider].defaultModel;
@@ -4562,7 +4446,6 @@ function liveRecogDisable(model, why) {
   const m = model === 'seg'
     ? (why === 'slow' ? 'الرصد التلقائي للمكان (سلالم وأبواب) متوقف لأن هذا الجهاز بطيء فيه. ما زال زر الفحص يعمل.' : 'تعذر تشغيل الرصد التلقائي للمكان. ما زال زر الفحص يعمل.')
     : (why === 'slow' ? 'الرصد التلقائي للمخاطر بالصور متوقف لأن هذا الجهاز بطيء في هذه الميزة. ما زال «ما هذا؟» يعمل عند الطلب.' : 'تعذر تشغيل الرصد التلقائي للمخاطر بالصور. ما زال «ما هذا؟» يعمل عند الطلب.');
-  if (fieldRecording) fieldPush('model_state',{model,off:true,reason:why,message:m});
   updateStatus(m); speak(m, false);
 }
 function handleLiveVector(v, slot, now) {
@@ -4571,12 +4454,11 @@ function handleLiveVector(v, slot, now) {
     const g = decideGeneral(v, hazardPool);
     const hit = (g.kind === 'match' && g.cls && g.cls.kind === 'hazard') ? { name: g.name, score: g.cls.score } : null;
     const conf = liveRecog.hazardVotes.push(hit, now);
-    if (fieldRecording) fieldPush('embedding_decision', { feature:slot, decisionKind:g.kind, matchedName:g.name || null, matchedScore:g.cls?.score || null, topMatches:Array.isArray(g.r)?g.r.slice(0,5).map(x=>({name:x.name,score:x.score,kind:x.kind||null})):[], isHazard:!!hit, voteConfirmed:!!conf, confirmation:conf?.why || null, assistantSpeaking:!!assistantSpeaking, previousHazardAgeMs:now-liveRecog.lastHazardTime, willAnnounce:!!(conf && (conf.name !== liveRecog.lastHazardKey || (now-liveRecog.lastHazardTime)>8000) && (now-lastHazardAlertTime)>1500) });
+    if (fieldRecording) fieldPush('embed', { slot, kind: 'hazard', hit, confirmed: conf ? conf.name : null, ms: liveRecog.lastMs.embed });
     if (!hit && liveRecog.hazardVotes.clearedFor(2)) liveRecog.lastHazardKey = '';
     if (conf && (conf.name !== liveRecog.lastHazardKey || (now - liveRecog.lastHazardTime) > 8000) && (now - lastHazardAlertTime) > 1500) {
       liveRecog.lastHazardKey = conf.name; liveRecog.lastHazardTime = now;
       const msg = generalSpeech({ name: conf.name, cls: { kind: 'hazard' } });
-      if (fieldRecording) fieldPush('vision_announcement', { feature:slot, kind:'general-hazard', name:conf.name, confidence:conf.score, text:msg, priority:2 });
       playSpatialBeep('center', true); vibrate([85, 55, 85]);
       updateStatus(msg); updateRiskIndicator('يستلزم الحذر'); lastDescription = msg; speak(msg, true);
       return;
@@ -4587,11 +4469,10 @@ function handleLiveVector(v, slot, now) {
     const d = decidePersonal(v, personalItems);
     const hit = d.kind === 'match' ? { name: d.name, score: (d.r && d.r[0] && d.r[0].score) || 0 } : null;
     const conf = liveRecog.itemVotes.push(hit, now);
-    if (fieldRecording) fieldPush('embedding_decision', { feature:slot, decisionKind:d.kind, matchedName:d.name || null, matchedScore:d.r?.[0]?.score || null, topMatches:Array.isArray(d.r)?d.r.slice(0,5).map(x=>({name:x.name,score:x.score})):[], isPersonalItem:true, voteConfirmed:!!conf, confirmation:conf?.why || null, assistantSpeaking:!!assistantSpeaking, recentHazardAgeMs:now-liveRecog.lastHazardTime, willAnnounce:!!(conf && (now-liveRecog.lastHazardTime)>6000 && (conf.name!==liveRecog.lastItemKey || (now-liveRecog.lastItemTime)>15000)) });
+    if (fieldRecording) fieldPush('embed', { slot, kind: 'items', hit, confirmed: conf ? conf.name : null, ms: liveRecog.lastMs.embed });
     if (conf && (now - liveRecog.lastHazardTime) > 6000 && (conf.name !== liveRecog.lastItemKey || (now - liveRecog.lastItemTime) > 15000)) {
       liveRecog.lastItemKey = conf.name; liveRecog.lastItemTime = now;
       const msg = 'أظن أمامك ' + conf.name + '.' + (MED_RE.test(conf.name) ? ' هذا تخمين بصري؛ تأكد من الاسم المكتوب قبل الاستعمال.' : '');
-      if (fieldRecording) fieldPush('vision_announcement', { feature:slot, kind:'personal-item', name:conf.name, confidence:conf.score, text:msg, priority:0 });
       updateStatus(msg); speak(msg, false);
     }
   }
@@ -4600,16 +4481,12 @@ function handleLiveVector(v, slot, now) {
 function handleLiveArch(res, thumb, now) {
   if (!segMeta || !liveRecog.archAnnouncer) return;
   const findings = SL.summarizeSegGrid(res.labels, res.gw, res.gh, segMeta.id2label, ADE20K_CRITICAL);
+  if (fieldRecording && window.SanadField) fieldPush('arch', { ms: res.ms, emaMs: Math.round(liveRecog.ema.seg), fallback: !!res.fallback, gw: res.gw, gh: res.gh, assistantSpeaking: !!assistantSpeaking,
+    labels: SanadField.topLabels(res.labels, res.gw, res.gh, segMeta.id2label, 200), grid: SanadField.lowResGrid(res.labels, res.gw, res.gh, segMeta.id2label, 16), findings: findings.map(f => ({ key: f.key, pos: f.pos, frac: Math.round(f.frac * 1000) / 1000, ratio: Math.round(f.ratio * 100) / 100, priority: f.priority })) });
   liveRecog.lastArch = { t: now, thumb, strings: SL.formatArchFindings(findings) };
-  if (fieldRecording) {
-    const segCounts = new Map();
-    if (res.labels && res.gw && res.gh) for (let i=0;i<res.labels.length;i++) { const id=Number(res.labels[i]); segCounts.set(id,(segCounts.get(id)||0)+1); }
-    const segHistogram = Array.from(segCounts.entries()).map(([id,count])=>({classId:id,label:String(segMeta.id2label?.[id]||'unknown'),cells:count,fraction:count/(res.gw*res.gh)})).sort((a,b)=>b.fraction-a.fraction);
-    fieldLastArchResultSeq = fieldPush('arch_result', { inferenceMs: Number(res.ms) || null, gridWidth: res.gw || null, gridHeight: res.gh || null, fallback: !!res.fallback, modelReady: !!segReady, modelEnabled: !!liveArchEnabled, modelOff: !!liveRecog.off.seg, findings: findings.map(f => ({ key: f.key, labelArabic: f.ar, position: f.pos, priority: f.priority, fraction: f.frac, thresholdRatio: f.ratio, minimumFraction: f.minPct })), classHistogram:segHistogram, labelGrid:res.labels?Array.from(res.labels):null, formatted: liveRecog.lastArch.strings });
-  }
   const allowInfo = !assistantSpeaking && (now - liveRecog.lastHazardTime) > 4000;
   const r = liveRecog.archAnnouncer.update(findings, now, allowInfo);
-  if (fieldRecording) fieldPush('arch_decision', { archResultSeq:fieldLastArchResultSeq, alert: r.alert || null, info: r.info || null, allowInfo, assistantSpeaking: !!assistantSpeaking, lastHazardAgeMs: now - liveRecog.lastHazardTime, diagnostics: r.diagnostics || null });
+  if (fieldRecording && (r.alert || r.info)) fieldPush('arch_announce', { alert: r.alert ? { group: r.alert.group, pos: r.alert.pos, ratio: Math.round(r.alert.ratio * 100) / 100 } : null, info: r.info ? { group: r.info.group, pos: r.info.pos, ratio: Math.round(r.info.ratio * 100) / 100 } : null, allowInfo });
   if (r.alert) {
     liveRecog.lastHazardTime = now;
     const msg = r.alert.ar + ' ' + r.alert.pos + '. تأكد بعصاك.';
@@ -4624,7 +4501,7 @@ async function liveRecogTick() {
   if (!liveRecog.running || !SL) return;
   const again = ms => { if (liveRecog.running && !liveRecog.timer) liveRecog.timer = setTimeout(liveRecogTick, ms); };
   try {
-    if (liveRecog.busy) { if(fieldRecording&&Date.now()-fieldLastGateLogAt>=2500){fieldLastGateLogAt=Date.now();fieldPush('live_recog_skip',{reason:'worker-already-busy'});} return again(500); }
+    if (liveRecog.busy) return again(500);
     if (installedPacks === null) await loadInstalledPacks();
     if (liveItemsEnabled && personalItems === null) await loadPersonalItems();
     const hasItems = !!(personalItems && personalItems.length);
@@ -4638,17 +4515,16 @@ async function liveRecogTick() {
       backendReady: embedReady, segReady,
       wantHazard, hasHazardPool: hazardPool.length > 0, wantItems, hasItems, wantArch
     });
-    if (gate !== 'run' && fieldRecording && Date.now()-fieldLastGateLogAt>=2500) { fieldLastGateLogAt=Date.now(); fieldPush('monitor_gate',{gate,hidden:!!document.hidden,assistantSpeaking:!!assistantSpeaking,busyUser:!!(isProcessing||isListening),videoReady:!!(videoElement&&videoElement.videoWidth>0),navModeEnabled:!!navModeEnabled,liveArchEnabled:!!liveArchEnabled,segReady:!!segReady,embedReady:!!embedReady}); }
     if (gate === 'nobackend') {
       await liveRecogEnsureWorkers({ embed: (wantHazard && hazardPool.length > 0) || (wantItems && hasItems), seg: wantArch });
       return again(2000);
     }
+    if (fieldRecording && gate !== 'run') fieldSkipNote('recog_' + gate);
     if (gate !== 'run') return again(gate === 'user' ? 800 : (gate === 'speaking' ? 700 : (gate === 'novideo' ? 1500 : 3000)));
-    if (isScanningFrame) { if(fieldRecording&&Date.now()-fieldLastGateLogAt>=2500){fieldLastGateLogAt=Date.now();fieldPush('live_recog_skip',{reason:'coco-detection-in-progress'});} return again(250); }          // لا نزاحم لحظة كشف الأجسام
+    if (isScanningFrame) return again(250);          // لا نزاحم لحظة كشف الأجسام
 
     const now = Date.now(), thumb = grabLiveThumb();
-    if (!thumb) { if(fieldRecording)fieldPush('live_recog_skip',{reason:'thumbnail-unavailable'}); return again(1500); }
-    if (!SL.thumbUsable(thumb)) { if(fieldRecording)fieldPush('live_recog_skip',{reason:'thumbnail-rejected-as-dark-or-flat'}); return again(1500); }
+    if (!thumb || !SL.thumbUsable(thumb)) return again(1500);
     const roi = (embedReady && wantItems && hasItems && lastCocoPreds && (now - lastCocoPreds.t) < 1500)
       ? SL.chooseRoi(lastCocoPreds.preds, lastCocoPreds.vw, lastCocoPreds.vh) : null;
     // مرتّبة بالأولوية: المخاطر (والأشياء بالإطار الكامل) ثم قصاصة الجسم ثم المكان
@@ -4660,24 +4536,22 @@ async function liveRecogTick() {
       const g = liveRecog.gates[id];
       return SL.shouldEmbed({ diff: SL.sceneDiff(g.thumb, thumb), now, lastEmbedAt: g.at });
     });
-    if (!sel.pick) { if(fieldRecording&&Date.now()-fieldLastGateLogAt>=2500){fieldLastGateLogAt=Date.now();fieldPush('live_recog_skip',{reason:'no-feature-due-or-scene-change-gate',waitMs:sel.waitMs,features:feats.map(f=>({id:f.id,dueInMs:Math.max(0,f.due-now)}))});} return again(sel.waitMs); }
+    if (!sel.pick) return again(sel.waitMs);
     const pick = sel.pick, plan = FEATURE_PLAN[pick], model = plan.model;
     liveRecog.gates[pick].thumb = thumb; liveRecog.gates[pick].at = now;
     const epoch = embedEpoch;
     liveRecog.busy = true;
-    let res = null, workerError = null;
+    let res = null;
     try {
       if (pick === 'arch') { const f = grabSegFrame(videoElement.videoWidth, videoElement.videoHeight); res = await workerSegTimed(f.w, f.h, f.buf); }
       else res = await workerEmbedTimed(await canvasToJpegBlob(renderLiveFrame(pick, roi), 0.9));
       liveRecog.fails[model] = 0;
-    } catch (e) { workerError = { name:String(e?.name||'Error').slice(0,80), message:String(e?.message||e).slice(0,180) }; liveRecog.fails[model]++; }
+    } catch (e) { liveRecog.fails[model]++; }
     finally { liveRecog.busy = false; }
     if (!res) {
-      if (fieldRecording) fieldPush(pick === 'arch' ? 'arch_error' : 'embedding_error', { feature: pick, model, consecutiveFailures: liveRecog.fails[model], modelOff: !!liveRecog.off[model], error:workerError, reason: liveRecog.fails[model] >= 3 ? 'disabled-after-three-failures' : 'retry-scheduled' });
       if (liveRecog.fails[model] >= 3) liveRecogDisable(model, 'error'); else liveRecog.due[pick] = Date.now() + 3000;
       return again(500);
     }
-    if (fieldRecording) fieldPush('vision_inference', { feature: pick, model, inferenceMs: Number(res.ms) || null, fallback: !!res.fallback, segReady: !!segReady, embedReady: !!embedReady, modelOff: !!liveRecog.off[model], outputDimensions: res.vec ? res.vec.length : null, gridWidth: res.gw || null, gridHeight: res.gh || null });
     if (res.fallback) segFallbackSeen = true;
     liveRecog.samples[model]++; liveRecog.lastMs[model] = res.ms;
     if (liveRecog.samples[model] > 1) liveRecog.ema[model] = SL.updateEma(liveRecog.ema[model], res.ms);   // أول قياس = إحماء
@@ -4694,7 +4568,7 @@ async function liveRecogTick() {
     }
     if (iv.tier === 'off') liveRecogDisable(model, 'slow');
     again(200);
-  } catch (e) { if(fieldRecording)fieldPush('live_recog_error',{name:String(e?.name||'Error').slice(0,80),message:String(e?.message||e).slice(0,180)}); again(3000); }
+  } catch (e) { again(3000); }
 }
 function startLiveRecognition() {
   if (!SL || liveRecog.running) return;
@@ -4728,7 +4602,7 @@ window.sanadLiveStats = () => {
     embed: { ready: embedReady, off: liveRecog.off.embed, samples: liveRecog.samples.embed, lastMs: liveRecog.lastMs.embed, emaMs: Math.round(liveRecog.ema.embed), tier: ie && ie.tier, delayMs: ie && ie.delay },
     seg: { ready: segReady, off: liveRecog.off.seg, samples: liveRecog.samples.seg, lastMs: liveRecog.lastMs.seg, emaMs: Math.round(liveRecog.ema.seg), tier: is && is.tier, delayMs: is && is.delay, customSizeRejected: segFallbackSeen, inputLongSide: SEG_LONG_SIDE },
     coco: { modelReady: !!objectModel, consecutiveFailures: cocoDetectFails, loopIntervalMs: 1200, lastDetectMs: cocoLastDetectMs, emaDetectMs: Math.round(cocoEmaDetectMs * 10) / 10, samples: cocoDetectSamples, lastGapMs: cocoLastGapMs, emaGapMs: Math.round(cocoEmaGapMs * 10) / 10 },
-    fieldRecording: !!fieldRecording, fieldEvents: fieldRecording ? fieldRecording.events.length : 0, fieldSchema: fieldRecording?.schema || null, fieldSessionId: fieldRecording?.id || null,
+    fieldRecording: !!fieldRecording, fieldEvents: fieldRecording ? fieldRecording.events.length : 0,
     hazardClasses: hazardPool.length, items: personalItems ? personalItems.length : null,
     cores: navigator.hardwareConcurrency || null, memGB: navigator.deviceMemory || null
   };
@@ -4910,16 +4784,16 @@ async function verifyPersonal(targetRaw) {
 function repeatLast() { if (lastDescription) { updateStatus(lastDescription); speak(lastDescription); } else { const m = 'لا يوجد وصف سابق بعد.'; updateStatus(m); speak(m); } }
 
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { if(fieldRecording){fieldPush('lifecycle',{state:'hidden',reason:'visibilitychange'});fieldRecording.interruptionCount=(fieldRecording.interruptionCount||0)+1;saveFieldSession(false).catch(()=>{});} stopVoiceRecognition(); stopLiveMonitoring(); stopCamera(); stopSpeaking(); }
-  else { if(fieldRecording)fieldPush('lifecycle',{state:'visible',reason:'visibilitychange'}); if(!mainScreen.classList.contains('hidden')){startCamera().then(()=>{if(fieldRecording)fieldPush('camera_resumed',{width:videoElement.videoWidth||null,height:videoElement.videoHeight||null});});startLiveMonitoring();keepScreenAwake();} }
+  if (fieldRecording) { fieldPush('visibility', { hidden: document.hidden }); if (document.hidden && window.fieldFlushNow) window.fieldFlushNow(); }
+  if (document.hidden) { stopVoiceRecognition(); stopLiveMonitoring(); stopCamera(); stopSpeaking(); }
+  else if (!mainScreen.classList.contains('hidden')) { startCamera(); startLiveMonitoring(); keepScreenAwake(); }
 });
-window.addEventListener('pagehide', () => { if(fieldRecording){fieldPush('lifecycle',{state:'pagehide',reason:'pagehide',visibility:document.visibilityState});fieldRecording.abandonedOrInterrupted=true;saveFieldSession(false).catch(()=>{});} stopVoiceRecognition(); stopLiveMonitoring(); stopCamera(); stopSpeaking(); });
+window.addEventListener('pagehide', () => { if (fieldRecording) { fieldPush('pagehide', {}); if (window.fieldFlushNow) window.fieldFlushNow(); } stopVoiceRecognition(); stopLiveMonitoring(); stopCamera(); stopSpeaking(); });
 window.addEventListener('load', () => {
   try { if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {}
   try { const p = new URLSearchParams(location.search).get('proxy'); if (p && /^https:\/\/[a-z0-9.-]+\.(workers|pages)\.dev(\/.*)?$/i.test(p) && window.confirm('سيُرسل التطبيق الصور إلى هذا الخادم: ' + new URL(p).host + ' . هل تثق به؟')) { proxyUrl = p.replace(/\/$/, ''); writeLS(LS_PROXY, proxyUrl); } } catch (e) {}
   apiKeyInput.value = apiKey; proxyUrlInput.value = proxyUrl;
   refreshAssetButtonsState();
-  fieldReadSessions().then(rows=>{const pending=rows.filter(x=>!x.completed||x.abandonedOrInterrupted||(x.schema==='sanad-field-session-v2'&&(!x.quality||!x.quality.validForAnalysis)));if(pending.length){const st=document.getElementById('field-recorder-settings-status');if(st)st.textContent='تنبيه: عُثر على '+pending.length+' جلسة غير مكتملة أو قديمة أو تحتاج إعادة. لا تعتمدها؛ صدّرها للمراجعة ثم أعد المشاهد الناقصة.';if(window.confirm('عُثر على '+pending.length+' جلسة غير مكتملة أو قديمة أو تحتاج إعادة. هل تريد فتح إعدادات التسجيل لمراجعتها وإعادة الاختبارات؟'))openSettings();}}).catch(()=>{});
   startApp(false);
 });
 </script>
@@ -4930,5 +4804,6 @@ window.addEventListener('load', () => {
     ap(); if (el) el.addEventListener('change', function () { on = el.checked; try { localStorage.setItem(k, on ? '1' : '0'); } catch (e) {} ap(); });
   })();
 </script>
+<script src="field_ui.js"></script>
 </body>
 </html>

@@ -10,7 +10,7 @@
 const VERSION = 'v19';
 const CORE_CACHE = 'sanad-core-' + VERSION;
 const LIB_CACHE = 'sanad-libs-v1';
-const CORE_FILES = ['./', './index.html', 'mirror_core.js', 'live_recog_core.js', 'field_recording_core.js', 'embed_worker.js', 'mirror_selftest.html', 'manifest.json', 'icon-192.png', 'icon-512.png'];
+const CORE_FILES = ['./', './index.html', 'mirror_core.js', 'live_recog_core.js', 'field_core.js', 'field_ui.js', 'embed_worker.js', 'mirror_selftest.html', 'manifest.json', 'icon-192.png', 'icon-512.png'];
 const LIB_HOSTS = ['cdn.jsdelivr.net', 'cdn.tailwindcss.com', 'storage.googleapis.com'];
 
 self.addEventListener('install', e => {

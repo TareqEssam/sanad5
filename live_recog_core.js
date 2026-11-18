@@ -199,6 +199,7 @@
           if (!cur || f.ratio > cur.ratio) byGroup.set(g, f);
         }
         let alert = null, info = null;
+        const diagnostics = [];
         const groups = new Set([...trackers.keys(), ...byGroup.keys()]);
         for (const g of groups) {
           const pol = ARCH_POLICY[g]; if (!pol) continue;
@@ -207,21 +208,25 @@
           if (!f) {
             const n = (absent.get(g) || 0) + 1; absent.set(g, n);
             if (n >= 2 && pol.kind === 'hazard') lastSaid.delete(g);     // غاب ثم عاد ⇒ ينبَّه من جديد
+            diagnostics.push({ group: g, kind: pol.kind, candidate: false, reason: 'no-current-finding', absentSamples: n });
             continue;
           }
           absent.set(g, 0);
-          if (!conf) continue;
+          if (!conf) { diagnostics.push({ group: g, kind: pol.kind, candidate: true, ratio: f.ratio, reason: 'vote-not-confirmed' }); continue; }
           const last = lastSaid.get(g);
-          if (last && now - last.t < pol.cool) continue;
+          if (last && now - last.t < pol.cool) { diagnostics.push({ group: g, kind: pol.kind, candidate: true, confirmed: true, ratio: f.ratio, reason: 'announcement-cooldown', cooldownRemainingMs: pol.cool - (now - last.t) }); continue; }
+          diagnostics.push({ group: g, kind: pol.kind, candidate: true, confirmed: true, ratio: f.ratio, reason: 'eligible' });
           const cand = { group: g, kind: pol.kind, ar: f.ar, pos: f.pos, ratio: f.ratio, priority: f.priority };
           if (pol.kind === 'hazard') { if (!alert || cand.ratio > alert.ratio) alert = cand; }
           else if (!info || cand.priority > info.priority || (cand.priority === info.priority && cand.ratio > info.ratio)) info = cand;
         }
         // الإخبار الهادئ لا يُعلَن (ولا يُحتسب مُعلَناً) إن مُنع أو سبقه تنبيه أو إخبار قريب
-        if (info && (alert || allowInfo === false || now - lastInfoAt < o.infoGapMs)) info = null;
+        if (info && alert) { diagnostics.push({ group: info.group, kind: 'info', candidate: true, reason: 'higher-priority-alert-present' }); info = null; }
+        else if (info && allowInfo === false) { diagnostics.push({ group: info.group, kind: 'info', candidate: true, reason: 'quiet-announcement-blocked' }); info = null; }
+        else if (info && now - lastInfoAt < o.infoGapMs) { diagnostics.push({ group: info.group, kind: 'info', candidate: true, reason: 'global-info-gap', cooldownRemainingMs: o.infoGapMs - (now - lastInfoAt) }); info = null; }
         if (alert) lastSaid.set(alert.group, { t: now, pos: alert.pos });
         if (info) { lastSaid.set(info.group, { t: now, pos: info.pos }); lastInfoAt = now; }
-        return { alert, info };
+        return { alert, info, diagnostics };
       }
     };
   }

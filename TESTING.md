@@ -249,3 +249,12 @@
 1. في وضع المشي قِس زمن `objectModel.detect` على الهاتف (لا يوجد قياس له حالياً) قبل أي رفع لوتيرة الرصد من 1.2ث.
 2. سر نحو سيارة واقفة على بعد 5-12م: قد يُنطق «تقترب» بسبب حركتك أنت (العتبة تُفعَّل عند مشي 1.4م/ث لجسم على بعد ≲12م).
 3. على آيفون: افتح التطبيق ثم المس الشاشة مرة؛ يجب أن يظهر مربع إذن «حركة واتجاه الجهاز» (إن لم يظهر فالمتصفح رفض صراحةً سابقاً).
+
+## Field Recording V2 checks
+Run:
+
+```bash
+node fieldtest.js
+```
+
+This includes executable tests for the field-session completeness validator and normalized bounding boxes, in addition to integration checks for the UI, model traces, ground-truth distance events, lifecycle events, device metadata, and service-worker cache version. These tests do not replace tests on real phones and camera hardware.

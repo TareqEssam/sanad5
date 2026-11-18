@@ -131,7 +131,7 @@ const spokenCount = (env, re) => env.spoken.filter(t => re.test(t)).length;
   detectCalls.length = 0;
   q2.push([person(50, 500, 40, 100, 0.95), car(200, 400, 320, 300, 0.6)]);
   await mtick(env);
-  ck('detect يُستدعى بحد 10 أجسام وعتبة 0.56', detectCalls.length === 1 && detectCalls[0][0] === 10 && detectCalls[0][1] === 0.56, JSON.stringify(detectCalls));
+  ck('يُقرأ نطاق أوسع للتسجيل (50 جسمًا/0.25) ثم تُعاد تصفية الإنتاج إلى 10 أجسام/0.56', detectCalls.length === 1 && detectCalls[0][0] === 50 && detectCalls[0][1] === 0.25 && env.run('COCO_MAX_BOXES') === 10, JSON.stringify(detectCalls));
   ck('السيارة القريبة في الوسط تُنطق لا الشخص البعيد عالي الثقة', /سيارة أمامك/.test(env.spoken.join(' ')) && !/شخص/.test(env.spoken.join(' ')), env.spoken.join(' | '));
   const rk = env.run(`JSON.stringify(rankLocalObjects([{class:'cup',score:.99,bbox:[0,0,10,10]},{class:'car',score:.6,bbox:[200,400,320,300]},{class:'toaster',score:.9,bbox:[0,0,5,5]}],720,1280).map(o=>o.p.class))`);
   ck('الأجسام غير المعروفة تُستبعد والأولوية أولاً', rk === '["car","cup"]', rk);

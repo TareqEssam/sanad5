@@ -293,9 +293,11 @@
       run.waitingForContinue = true;
       showPlaceControls(true, true);
       updateStatus(frontText + ' يمكنك استكمال الجهات اختيارياً بالضغط على زر «استكمال الجهات» أولاً.');
-      speak(frontText + ' إذا كان المكان آمناً وأنت ثابت في موضعك، اضغط زر استكمال الجهات أولاً، ثم حرّك الهاتف ببطء ناحية اليمين دون المشي أو تحريك قدميك. إن لم يكن ذلك آمناً، اترك الفحص هنا.');
+      await speakWait(frontText + ' إذا كان المكان آمناً وأنت ثابت في موضعك، اضغط زر استكمال الجهات أولاً، ثم حرّك الهاتف ببطء ناحية اليمين دون المشي أو تحريك قدميك. إن لم يكن ذلك آمناً، اترك الفحص هنا.', 60000);
+      if (!run || run.cancelled || !run.waitingForContinue) return;
+      // المهلة تبدأ بعد انتهاء الكلام، ولا يُعاد نطق الوصف الأمامي عند انتهائها.
       run.waitTimer = setTimeout(() => {
-        if (run && run.waitingForContinue) finish(false);
+        if (run && run.waitingForContinue) finish(false, false, 'انتهت مهلة استكمال الجهات. الوصف الأمامي كما سبق. قل صف المكان لبدء فحص جديد.');
       }, cfg.continueWaitMs);
     } catch (e) {
       console.warn('placescan', e);

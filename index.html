@@ -668,6 +668,7 @@
 <script src="mirror_core.js"></script>
 <script src="live_recog_core.js"></script>
 <script src="field_core.js"></script>
+<script src="place_core.js"></script>
 <script>
 const DEFAULT_PUBLIC_PROXY_URL = '';
 
@@ -2692,6 +2693,7 @@ async function liveMonitorTick() {
     if (cocoDetectFails >= 3) localScannerBadge.textContent = 'الأجسام والمسافة: نشط';
     cocoDetectFails = 0;
     lastCocoPreds = { t: Date.now(), preds: preds || [], vw, vh };
+    if (window.PlaceScan) PlaceScan.onCoco(preds || [], vw, vh);
     const ranked = rankLocalObjects(preds, vw, vh), now = Date.now();
     // الاقتراب: يُتتبَّع أكبر جسم أولويته ≥3 في الوسط مستقلاً عن ترتيب التنبيه (كان يُصفَّر إن تقدّم عليه جسم جانبي)
     let center = null;
@@ -2727,6 +2729,7 @@ async function liveMonitorTick() {
       vibrate(loomingUrgent ? [120, 45, 120, 45, 120] : (urgent ? [85, 55, 85] : [35]));
       const msg = loomingUrgent ? ('انتبه! ' + meta.ar + ' تقترب منك بسرعة ' + (dist ? ('— ' + dist.text) : '') + '!') : (meta.ar + ' ' + pos + (dist ? (' — ' + dist.text) : '') + '.');
       fdn('spoken', loomingUrgent ? 'looming' : (urgent ? 'urgent' : 'normal'), msg);
+      if (window.PlaceScan && urgent) PlaceScan.onHazard(meta.ar + ' ' + pos, loomingUrgent);
       updateStatus(msg); updateRiskIndicator(urgent ? 'يستلزم الحذر' : 'لم يظهر خطر واضح في الصورة'); speak(msg, true, loomingUrgent ? 2 : 0);
     } else fdn('suppressed', 'duplicate_within_6.5s');
   } catch (e) {
@@ -3558,6 +3561,7 @@ function parseVoiceCommand(raw) {
   if (!n) return null;
   const exact = (arr, type) => new Set(arr.map(normalizeArabicCommand)).has(n) ? { type } : null;
   let p = exact(['اسكت', 'توقف', 'بس', 'وقف الصوت'], 'stop'); if (p) return p;
+  p = exact(['صف المكان', 'صف لي المكان', 'وصف المكان', 'اوصف المكان', 'اوصف لي المكان', 'وصف المكان بالتفصيل', 'صف المكان بالتفصيل', 'انا فين', 'وصف المكان كامل', 'صف لي المكان بالكامل', 'صف المكان بالكامل'], 'describePlace'); if (p) return p;
   p = exact(['شغل الكشاف', 'افتح الكشاف', 'شغل الفلاش'], 'torchOn'); if (p) return p;
   p = exact(['اطفي الكشاف', 'اقفل الكشاف', 'اطفي الفلاش'], 'torchOff'); if (p) return p;
   p = exact(['شغل الرصد', 'تشغيل الرصد', 'شغل الملاحه'], 'navOn'); if (p) return p;
@@ -3714,7 +3718,8 @@ async function findObjectLive(targetRaw) {
 async function handleVoiceCommand(cmd) {
   if (!cmd) return; vibrate(25);
   switch (cmd.type) {
-    case 'stop': stopSpeaking(); updateStatus('تم إيقاف الصوت.'); return;
+    case 'describePlace': if (window.PlaceScan) PlaceScan.start(); return;
+    case 'stop': if (window.PlaceScan && PlaceScan.running) PlaceScan.cancel(); stopSpeaking(); updateStatus('تم إيقاف الصوت.'); return;
     case 'torchOn': torchManualOverride = true; await applyTorch(true, false, false); return;
     case 'torchOff': torchManualOverride = true; await applyTorch(false, false, false); return;
     case 'navOn': setNavMode(true, true); return;
@@ -4489,6 +4494,7 @@ function handleLiveArch(res, thumb, now) {
   if (fieldRecording && window.SanadField) fieldPush('arch', { ms: res.ms, emaMs: Math.round(liveRecog.ema.seg), fallback: !!res.fallback, gw: res.gw, gh: res.gh, assistantSpeaking: !!assistantSpeaking,
     labels: SanadField.topLabels(res.labels, res.gw, res.gh, segMeta.id2label, 200), grid: SanadField.lowResGrid(res.labels, res.gw, res.gh, segMeta.id2label, 16), findings: findings.map(f => ({ key: f.key, pos: f.pos, frac: Math.round(f.frac * 1000) / 1000, ratio: Math.round(f.ratio * 100) / 100, priority: f.priority })) });
   liveRecog.lastArch = { t: now, thumb, strings: SL.formatArchFindings(findings) };
+  if (window.PlaceScan) PlaceScan.onArch(res);
   const allowInfo = !assistantSpeaking && (now - liveRecog.lastHazardTime) > 4000;
   const r = liveRecog.archAnnouncer.update(findings, now, allowInfo);
   if (fieldRecording && (r.alert || r.info)) fieldPush('arch_announce', { alert: r.alert ? { group: r.alert.group, pos: r.alert.pos, ratio: Math.round(r.alert.ratio * 100) / 100 } : null, info: r.info ? { group: r.info.group, pos: r.info.pos, ratio: Math.round(r.info.ratio * 100) / 100 } : null, allowInfo });
@@ -4496,6 +4502,7 @@ function handleLiveArch(res, thumb, now) {
     liveRecog.lastHazardTime = now;
     const msg = r.alert.ar + ' ' + r.alert.pos + '. تأكد بعصاك.';
     playSpatialBeep(sideFromPosition(r.alert.pos), true); vibrate([85, 55, 85]);
+    if (window.PlaceScan) PlaceScan.onHazard(r.alert.ar + ' ' + r.alert.pos, false);
     updateStatus(msg); updateRiskIndicator('يستلزم الحذر'); lastDescription = msg; speak(msg, true);
     return;
   }
@@ -4810,5 +4817,6 @@ window.addEventListener('load', () => {
   })();
 </script>
 <script src="field_ui.js"></script>
+<script src="place_ui.js"></script>
 </body>
 </html>

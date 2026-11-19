@@ -168,6 +168,7 @@
     run.core.markRequested(idx);
     run.collecting = true;
     run.lastCollectionStarted = Date.now();
+    try { if (typeof liveRecog !== 'undefined') liveRecog.due.arch = 0; } catch (e) {}     // لا ننتظر مؤقت الرصد الخلفي البطيء: عينة تجزئة الآن
     const end = Date.now() + cfg.sectorMs;
     while (run && !run.cancelled && !run.urgent && Date.now() < end) {
       await sleep(250);
@@ -230,7 +231,8 @@
       yaw0: null, yaw: null, yawSamples: [], hasYaw: false, lastYawAt: 0,
       collectTarget: 0, pausedUntil: 0, urgent: null, core: null, saved,
       t0: Date.now(), waitingForContinue: false, waitTimer: null,
-      orientationLost: false, qualityWarnings: false, pendingHazards: [], cancelResolve: null
+      orientationLost: false, qualityWarnings: false, pendingHazards: [], cancelResolve: null,
+      spokenSectors: new Set(), spokenHazards: []
     };
     run.cancelPromise = new Promise(resolve => { run.cancelResolve = resolve; });
     run.handler = ev => onOrientation(ev);
@@ -285,7 +287,8 @@
         return;
       }
 
-      const frontText = P.narrate(run.core.summary());
+      const frontSum = run.core.summary(), frontText = P.narrate(frontSum);
+      run.spokenSectors.add(0); run.spokenHazards = frontSum.hazards.slice();
       if (!run.hasYaw) {
         await finish(false, false, frontText + ' حساس الاتجاه غير متاح أو غير مستقر؛ لذلك لم أطلب منك مسح الجهات الأخرى. يمكنك توجيه الهاتف لجهة أخرى من موضع آمن وطلب الوصف مرة أخرى.');
         return;
@@ -361,7 +364,9 @@
       if (okR && okL) {
         // عرض الوصف الجانبي ثم عرض الخلف اختيارياً
         run.stage = 'back'; run.waitingForContinue = true; showPlaceControls(true, true);
-        const txt = P.narrate(run.core.summary());
+        const sideSum = run.core.summary();
+        const txt = P.narrate(sideSum, { only: [1, 3], brief: true, skipHazardTexts: run.spokenHazards });
+        run.spokenSectors.add(1); run.spokenSectors.add(3); run.spokenHazards = sideSum.hazards.slice();
         updateStatus(txt);
         await speakWait(txt + ' إن أردت فحص الخلف دون أن تلتفت، اضغط زر استكمال الجهات أو قل استكمل الجهات. وإلا فانتهى الوصف.', 90000);
         if (!run || run.cancelled || !run.waitingForContinue) return true;
@@ -411,7 +416,11 @@
       updateStatus(m); speak(m); return;
     }
     const sum = r.core.summary();
-    const text = overrideText || P.narrate(sum);
+    // ما نُطق سابقاً لا يُعاد: الخلاصة النهائية تقتصر على الجهات التي لم تُنطق بعد
+    const pending = sum.sectors.filter(s => s.requested && !r.spokenSectors.has(s.id)).map(s => s.id);
+    const text = overrideText || (r.spokenSectors.size && pending.length
+      ? P.narrate(sum, { only: pending, brief: true, skipHazardTexts: r.spokenHazards })
+      : (r.spokenSectors.size ? 'انتهى وصف المكان. قل أعد لأكرر آخر وصف.' : P.narrate(sum)));
     lastDescription = text; updateStatus(text); speak(text, true, 1);
     if (typeof fieldRecording !== 'undefined' && fieldRecording && typeof fieldPush === 'function') {
       fieldPush('placescan', {
@@ -437,10 +446,19 @@
     cancel() {
       if (!run) return;
       run.cancelled = true;
+      try { stopSpeaking(); } catch (e) {}
       if (typeof run.cancelResolve === 'function') run.cancelResolve();
       if (run.waitTimer) { clearTimeout(run.waitTimer); run.waitTimer = null; }
       if (run.waitingForContinue) finish(true);
     },
+    // زر «اسكت» العلوي (موضعه ثابت ويسهل على قارئ الشاشة): أثناء الجمع/التوجيه يُلغي المسح، وأثناء انتظار «استكمال الجهات» يُسكت الكلام فقط.
+    onStopButton() {
+      if (!run) { stopSpeaking(); return; }
+      if (run.waitingForContinue) { stopSpeaking(); return; }
+      this.cancel();
+    },
+    // الرصد الخلفي يُسرّع عينات التجزئة أثناء الجمع فقط
+    get boost() { return !!(run && run.collecting && !run.cancelled); },
     get running() { return !!run; },
     get waitingForContinue() { return !!(run && run.waitingForContinue); }
   };

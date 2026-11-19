@@ -86,7 +86,7 @@ t('الزر يطلب الضغط أولاً ثم تحريك الهاتف', /اض�
 t('إلغاء انتظار النماذج يستجيب دون انتظار المهلة كاملة', /run\.cancelPromise\.then\(\(\) => null\)/.test(ui) && /run\.cancelResolve\(\)/.test(ui));
 t('استعادة الكاميرا تنتظر حتى بعد تسجيل الإلغاء', /waitForCamera\(r\.saved\.facing, 10000, true\)/.test(ui));
 t('صف المكان لا يغير وضع الملابس أو المرآة الدائم', !/lifeMode\s*=/.test(ui));
-t('تحديث Service Worker', /VERSION = 'v22'/.test(sw));
+t('تحديث Service Worker', /VERSION = 'v23'/.test(sw));
 
 console.log(bad ? `✘ فشل ${bad} من ${ok + bad}` : `✔ كل الاختبارات نجحت (${ok})`);
 process.exit(bad ? 1 : 0);

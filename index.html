@@ -506,7 +506,7 @@
   <!-- ================= الشاشة الرئيسية ================= -->
   <div id="main-screen" class="flex-1 flex flex-col">
     <div id="top-bar" role="toolbar" aria-label="التحكم السريع">
-      <button id="stop-btn" type="button" onclick="stopSpeaking()" data-speak-label="إيقاف الصوت فوراً" aria-label="إيقاف الصوت فوراً"
+      <button id="stop-btn" type="button" onclick="(window.PlaceScan && PlaceScan.running) ? PlaceScan.onStopButton() : stopSpeaking()" data-speak-label="إيقاف الصوت فوراً" aria-label="إيقاف الصوت فوراً"
               class="bg-red-950 hover:bg-red-900 border border-red-700 text-red-100">
         <span aria-hidden="true">⏹</span><span>اسكت</span>
       </button>
@@ -3571,7 +3571,9 @@ function parseVoiceCommand(raw) {
   if (!n) return null;
   const exact = (arr, type) => new Set(arr.map(normalizeArabicCommand)).has(n) ? { type } : null;
   let p = exact(['اسكت', 'توقف', 'بس', 'وقف الصوت'], 'stop'); if (p) return p;
-  p = exact(['صف المكان', 'صف لي المكان', 'وصف المكان', 'اوصف المكان', 'اوصف لي المكان', 'وصف المكان بالتفصيل', 'صف المكان بالتفصيل', 'انا فين', 'اين انا', 'وصف المكان كامل', 'صف لي المكان بالكامل', 'صف المكان بالكامل', 'صف لي ما حولي'], 'describePlace'); if (p) return p;
+  p = exact(['صف المكان', 'صف لي المكان', 'وصف المكان', 'اوصف المكان', 'اوصف لي المكان', 'وصف المكان بالتفصيل', 'صف المكان بالتفصيل', 'انا فين', 'اين انا', 'وصف المكان كامل', 'صف لي المكان بالكامل', 'صف المكان بالكامل', 'صف لي ما حولي',
+    'فين انا', 'وين انا', 'انا وين', 'ماذا حولي', 'ما حولي', 'ايه حولي', 'ايه اللي حولي', 'اوصف لي ما حولي', 'اوصف ما حولي', 'صف ما حولي', 'وصف ما حولي',
+    'صف المشهد', 'وصف المشهد', 'صف لي المشهد', 'اوصف المشهد', 'اوصف لي المشهد'], 'describePlace'); if (p) return p;
   p = exact(['استكمل الجهات', 'اكمل الجهات', 'استكمال الجهات', 'اكمل مسح المكان', 'استكمل المسح'], 'continuePlace'); if (p) return p;
   p = exact(['شغل الكشاف', 'افتح الكشاف', 'شغل الفلاش'], 'torchOn'); if (p) return p;
   p = exact(['اطفي الكشاف', 'اقفل الكشاف', 'اطفي الفلاش'], 'torchOff'); if (p) return p;
@@ -4558,7 +4560,7 @@ async function liveRecogTick() {
     if (segReady && wantArch) feats.push({ id: 'arch', due: liveRecog.due.arch });
     const sel = SL.chooseFeature(feats, now, id => {
       const g = liveRecog.gates[id];
-      return SL.shouldEmbed({ diff: SL.sceneDiff(g.thumb, thumb), now, lastEmbedAt: g.at });
+      return SL.shouldEmbed({ diff: SL.sceneDiff(g.thumb, thumb), now, lastEmbedAt: g.at, maxStaleMs: (id === 'arch' && window.PlaceScan && PlaceScan.boost) ? 1200 : undefined });
     });
     if (!sel.pick) return again(sel.waitMs);
     const pick = sel.pick, plan = FEATURE_PLAN[pick], model = plan.model;
@@ -4583,7 +4585,7 @@ async function liveRecogTick() {
       samples: liveRecog.samples[model] - 1, cores: navigator.hardwareConcurrency, mem: navigator.deviceMemory,
       k: plan.k, minDelay: plan.minDelay, maxDelay: plan.maxDelay, offAt: plan.offAt
     });
-    liveRecog.due[pick] = Date.now() + iv.delay;
+    liveRecog.due[pick] = Date.now() + ((pick === 'arch' && window.PlaceScan && PlaceScan.boost) ? Math.min(iv.delay, 1600) : iv.delay);   // أثناء «صف المكان» فقط
     const win = Math.max(9000, iv.delay * 2.5);
     liveRecog.hazardVotes.setWindow(win); liveRecog.itemVotes.setWindow(win); liveRecog.archAnnouncer.setWindow(win);
     // نتيجة قديمة (طلب مستخدم جرى أثناء الحساب) أو المستخدم مشغول ⇒ تُهمل

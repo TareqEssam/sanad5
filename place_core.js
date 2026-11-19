@@ -20,6 +20,7 @@
     const r = Math.PI / 180, a = alpha * r, b = beta * r, g = gamma * r;
     const X = -Math.sin(g) * Math.cos(a) - Math.cos(g) * Math.sin(b) * Math.sin(a);
     const Y = -Math.sin(g) * Math.sin(a) + Math.cos(g) * Math.sin(b) * Math.cos(a);
+    if (Math.hypot(X, Y) < 0.2) return null;          // الكاميرا شبه عمودية على الأرض/السقف: الاتجاه الأفقي غير معرّف
     const yaw = Math.atan2(X, Y) / r;
     return (yaw + 360) % 360;
   }
@@ -42,10 +43,18 @@
     stairs: 'سلالم', stairway: 'سلم', step: 'درجة', refrigerator: 'ثلاجة', pole: 'عمود', screen: 'شاشة', bathtub: 'بانيو', toilet: 'مرحاض', bench: 'مقعد',
     fireplace: 'مدفأة', stove: 'بوتاجاز', kitchen: 'مطبخ', bannister: 'درابزين', banister: 'درابزين', bookcase: 'مكتبة', box: 'صناديق', pillow: 'وسائد',
     awning: 'مظلة', streetlight: 'عمود إنارة', 'traffic light': 'إشارة مرور', bus: 'حافلة', truck: 'شاحنة', van: 'عربة', bicycle: 'دراجات', minibike: 'دراجة نارية',
+    'coffee table': 'ترابيزة صغيرة', 'chest of drawers': 'كومودينو', countertop: 'سطح مطبخ', 'kitchen island': 'جزيرة مطبخ', computer: 'كمبيوتر',
+    'swivel chair': 'كرسي مكتب', 'television receiver': 'تلفزيون', oven: 'فرن', microwave: 'ميكروويف', washer: 'غسالة', dishwasher: 'غسالة أطباق',
+    ottoman: 'بوف', buffet: 'بوفيه', stool: 'كرسي بلا ظهر', chandelier: 'نجفة', blind: 'شيش', 'screen door': 'باب شبكي', 'pool table': 'طاولة بلياردو',
+    sand: 'رمال', rock: 'صخور', hill: 'تل', palm: 'نخل', flower: 'زهور', boat: 'مركب', tent: 'خيمة', stage: 'منصة', canopy: 'مظلة كبيرة', waterfall: 'شلال',
+    'dirt track': 'طريق ترابي', grandstand: 'مدرجات', tower: 'برج', booth: 'كشك', animal: 'حيوان', 'conveyer belt': 'سير ناقل',
     path: 'ممر', escalator: 'سلم متحرك', 'swimming pool': 'حمام سباحة', river: 'نهر', lake: 'بحيرة', fountain: 'نافورة', bridge: 'جسر', skyscraper: 'برج'
   };
-  const INDOOR = { floor: 1, ceiling: 1.2, bed: 2, cabinet: 1, door: .5, table: 1, curtain: 1.2, chair: 1, sofa: 2, shelf: 1, rug: 1.5, armchair: 1.5, desk: 1.5, wardrobe: 2, lamp: 1, painting: 1.2, counter: 1.5, sink: 1.5, refrigerator: 2, bookcase: 1.5, pillow: 1.5, toilet: 2, bathtub: 2, stove: 2, kitchen: 2, fireplace: 1.5 };
-  const OUTDOOR = { sky: 3, road: 3, building: 1.8, sidewalk: 3, tree: 2, car: 1.5, grass: 2, earth: 1.5, mountain: 2, sea: 3, water: 1, house: 1.5, fence: 1, streetlight: 2, bus: 1.5, truck: 1.5, field: 2, river: 2, bridge: 2, skyscraper: 2, 'traffic light': 2, signboard: 1, pole: 1 };
+  const INDOOR = { floor: 1, ceiling: 1.2, bed: 2, cabinet: 1, door: .5, table: 1, curtain: 1.2, chair: 1, sofa: 2, shelf: 1, rug: 1.5, armchair: 1.5, desk: 1.5, wardrobe: 2, lamp: 1, painting: 1.2, counter: 1.5, sink: 1.5, refrigerator: 2, bookcase: 1.5, pillow: 1.5, toilet: 2, bathtub: 2, stove: 2, kitchen: 2, fireplace: 1.5,
+    'coffee table': 1.5, 'chest of drawers': 1.5, countertop: 1.5, 'kitchen island': 2, computer: 1, 'swivel chair': 1.5, 'television receiver': 1.5, oven: 2, microwave: 2,
+    washer: 1.5, dishwasher: 2, ottoman: 1, buffet: 1, chandelier: 1.2, blind: 1, 'pool table': 1 };
+  const OUTDOOR = { sky: 3, road: 3, building: 1.8, sidewalk: 3, tree: 2, car: 1.5, grass: 2, earth: 1.5, mountain: 2, sea: 3, water: 1, house: 1.5, fence: 1, streetlight: 2, bus: 1.5, truck: 1.5, field: 2, river: 2, bridge: 2, skyscraper: 2, 'traffic light': 2, signboard: 1, pole: 1,
+    sand: 1.5, rock: 1, hill: 1, palm: 1.5, boat: 1, tent: 1, waterfall: 1, 'dirt track': 1.5, grandstand: 1.5, tower: 1.5, booth: 1 };
   const HAZ_SEG = { stairs: 'سلالم', stairway: 'سلم', step: 'درجات', water: 'مياه', road: 'طريق سيارات', escalator: 'سلم متحرك', 'swimming pool': 'مياه', river: 'مياه', sea: 'مياه', lake: 'مياه' };
   function baseLabel(l) { return String(l || '').toLowerCase().split(',')[0].trim(); }
   function arOf(l) { return AR[baseLabel(l)] || null; }
@@ -201,21 +210,28 @@
   function stepsText(n) { if (!Number.isFinite(n)) return ''; if (n <= 1) return 'على بعد خطوة تقريباً'; if (n === 2) return 'على بعد خطوتين تقريباً'; if (n <= 10) return 'على بعد نحو ' + n + ' خطوات'; return 'بعيد نسبياً'; }
   function countWord(ar, c) { return c >= 2 ? (ar + ' (نحو ' + c + ')') : ar; }
 
-  function narrate(sum) {
+  /* opts اختيارية (بدونها السلوك القديم كما هو): only = معرّفات الجهات المطلوب وصفها فقط، brief = بلا سطر نوع المكان/التغطية وبخاتمة قصيرة،
+     skipHazardTexts = تنبيهات سبق نطقها فلا تُكرَّر. الغرض: ألا يسمع المستخدم الجهة الأمامية والتحفظ الطويل ثلاث مرات. */
+  function narrate(sum, opts) {
+    opts = opts || {};
+    const only = Array.isArray(opts.only) ? new Set(opts.only) : null, brief = !!opts.brief, skipH = new Set(opts.skipHazardTexts || []);
+    const inScope = s => !only || only.has(s.id);
     const L = [];
     // 1) السلامة أولاً: ما رُصد كاحتمال، لا كحقيقة مؤكدة.
-    if (sum.hazards.length) L.push('تنبيه أولاً: رُصد أثناء الفحص ' + sum.hazards.join('، ') + '. تحرّك بحذر واستعمل العصا.');
-    const segHaz = []; sum.sectors.forEach(s => { if (s.requested) s.hazards.forEach(h => segHaz.push(h + ' ' + s.name)); });
+    const liveHaz = sum.hazards.filter(h => !skipH.has(h));
+    if (liveHaz.length) L.push('تنبيه أولاً: رُصد أثناء الفحص ' + liveHaz.join('، ') + '. تحرّك بحذر واستعمل العصا.');
+    const segHaz = []; sum.sectors.forEach(s => { if (s.requested && inScope(s)) s.hazards.forEach(h => segHaz.push(h + ' ' + s.name)); });
     if (segHaz.length) L.push('احتمال وجود ' + segHaz.slice(0, 3).join('، ') + '. تأكد بعصاك قبل أي حركة.');
-    const near = []; sum.sectors.forEach(s => { if (s.requested) s.objects.forEach(o => { if (o.priority >= 3 && Number.isFinite(o.steps) && o.steps <= 3) near.push(o.ar + ' ' + s.name); }); });
+    const near = []; sum.sectors.forEach(s => { if (s.requested && inScope(s)) s.objects.forEach(o => { if (o.priority >= 3 && Number.isFinite(o.steps) && o.steps <= 3) near.push(o.ar + ' ' + s.name); }); });
     if (near.length) L.push('قريب منك وفق تقدير الصورة: ' + near.slice(0, 3).join('، ') + '.');
     // 2) نوع المكان لا يُقال إلا بعد عدد كافٍ من عينات التقسيم.
-    if (sum.kind.kind === 'indoor') L.push('يبدو أنك داخل مكان مغلق' + (sum.kind.conf < 0.75 ? ' (تقدير غير مؤكد)' : '') + '.');
+    if (brief) { /* نوع المكان قيل في الوصف الأول */ }
+    else if (sum.kind.kind === 'indoor') L.push('يبدو أنك داخل مكان مغلق' + (sum.kind.conf < 0.75 ? ' (تقدير غير مؤكد)' : '') + '.');
     else if (sum.kind.kind === 'outdoor') L.push('يبدو أنك في مكان مفتوح أو في الشارع' + (sum.kind.conf < 0.75 ? ' (تقدير غير مؤكد)' : '') + '.');
     else if (sum.hasSeg) L.push('لم أتمكن من تحديد إن كان المكان مغلقاً أو مفتوحاً بعدد كافٍ من القراءات المتوافقة.');
     // 3) الجهات التي وُجهت إليها الكاميرا فقط؛ لا نخترع وصفاً لبقية الجهات.
     for (const s of sum.sectors) {
-      if (!s.requested) continue;
+      if (!s.requested || !inScope(s)) continue;
       if (!s.reliable) {
         L.push(s.name + ': لم أحصل على قراءات كافية لوصف هذه الجهة بثقة.');
         continue;
@@ -235,10 +251,11 @@
       if (s.id === 2) L.push('جهة الخلف أُخذت برفع الهاتف بجوار الرأس، فقد تظهر أجزاء من جسمك؛ لذلك لا أذكر الأشخاص فيها، وهي أقل ثقة من بقية الجهات.');
     }
     // 4) أمانة التغطية والسلامة.
-    if (sum.scanned < 4) L.push('لم أفحص بقية الجهات؛ الوصف يقتصر على الاتجاهات التي وُجهت إليها الكاميرا فقط.');
-    if (sum.covered < sum.scanned) L.push('اكتملت قراءات ' + sum.covered + ' من ' + sum.scanned + ' جهات طلبت فحصها بثقة كافية.');
+    if (!brief && sum.scanned < 4) L.push('لم أفحص بقية الجهات؛ الوصف يقتصر على الاتجاهات التي وُجهت إليها الكاميرا فقط.');
+    if (!brief && sum.covered < sum.scanned) L.push('اكتملت قراءات ' + sum.covered + ' من ' + sum.scanned + ' جهات طلبت فحصها بثقة كافية.');
     if (sum.qualityRejected) L.push('استبعدت بعض الإطارات لضعف الإضاءة أو عدم صلاحية الصورة؛ أبعد يدك عن العدسة وحسّن الإضاءة ثم أعد الفحص.');
-    L.push('هذا وصف بصري تقريبي للمشهد من موضعك، وليس تحديداً لاسم المبنى أو عنوانك. لا يدل على خلو الطريق من العوائق، فلا تتحرك اعتماداً عليه وحده وتأكد بالعصا.');
+    if (brief) L.push('هذا وصف تقريبي؛ تأكد بالعصا قبل أي حركة.');
+    else L.push('هذا وصف بصري تقريبي للمشهد من موضعك، وليس تحديداً لاسم المبنى أو عنوانك. لا يدل على خلو الطريق من العوائق، فلا تتحرك اعتماداً عليه وحده وتأكد بالعصا.');
     return L.join(' ');
   }
 

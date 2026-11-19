@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <title>سند V20.12 — المرآة الذكية: فحص المظهر داخل الهاتف</title>
+  <title>سند V20.14 — المساعد البصري المحلي</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
@@ -198,7 +198,7 @@
   <main id="settings-screen" class="hidden p-4 flex flex-col min-h-screen max-w-xl mx-auto w-full" role="main" aria-labelledby="settings-heading">
     <div class="w-full flex flex-col gap-4 pb-10">
       <h1 id="settings-heading" tabindex="-1" class="text-2xl font-bold text-center text-blue-400">
-        سند V20.12 — المساعد البصري الشامل المجاني
+        سند V20.14 — المساعد البصري الشامل المجاني
       </h1>
       <p class="text-sm text-gray-200 leading-relaxed">
         مشروع إنساني مجاني بالكامل لفاقدي وضعاف البصر في مصر: يعمل <strong>بلا تكلفة أو بطاقة بنكية</strong>. يجمع بين الرؤية المحلية (المسافة بالخطوات، تحذير الاقتراب السريع، الكشاف التلقائي في الظلام، <strong>وطواط الظلام (تجريبي)</strong> لكشف الحوائط والأبواب المغلقة، قراءة النصوص وصلاحية الدواء، العملة المصرية، فحص البقع وتنسيق الملابس، و<strong>المرآة الذكية (V20.8): فحص الشعر واللحية والنظارة والحجاب والملابس والحذاء وألوان المظهر داخل الهاتف بلا إنترنت وبلا أي نموذج خارجي</strong>) + دعم الخادم المجاني ومفاتيح Gemini 3 و OpenRouter المجانية.
@@ -557,11 +557,21 @@
       </button>
 
       <div class="absolute bottom-0 inset-x-0 p-2 pointer-events-none z-20">
-        <div class="bg-gray-950/95 border border-gray-700 p-2.5 rounded-2xl text-center shadow-lg space-y-1.5">
+        <div class="bg-gray-950/95 border border-gray-700 p-2.5 rounded-2xl text-center shadow-lg space-y-2">
           <p id="risk-indicator" class="hidden border rounded-xl px-3 py-1 text-xs" aria-live="assertive"></p>
           <p id="status-text" role="status" aria-live="polite" class="text-sm font-medium leading-relaxed text-gray-100">
             سند جاهز. المس الوسط لوصف المشهد، أو اختر أداة من الأسفل.
           </p>
+          <div id="place-action-row" class="hidden flex items-center justify-center gap-2 pointer-events-auto" style="pointer-events:auto">
+            <button id="place-continue-btn" type="button" onclick="PlaceScan && PlaceScan.continueScan()" hidden disabled
+                    class="rounded-xl bg-emerald-700 hover:bg-emerald-600 border border-emerald-400 text-white font-bold text-sm px-4 py-2 min-h-[48px]">
+              استكمال الجهات
+            </button>
+            <button id="place-stop-btn" type="button" onclick="PlaceScan && PlaceScan.cancel()" hidden
+                    class="rounded-xl bg-rose-900 hover:bg-rose-800 border border-rose-500 text-white font-bold text-sm px-4 py-2 min-h-[48px]">
+              إيقاف الوصف
+            </button>
+          </div>
         </div>
       </div>
 
@@ -2657,7 +2667,7 @@ async function liveMonitorTick() {
   if (!videoElement || videoElement.paused || videoElement.ended || videoElement.videoWidth === 0) return;
   const q = probeFrameQuality();
   await evaluateContinuousAutoTorch(q);
-  if (!navModeEnabled || !localScanEnabled || lifeMode === 'grooming' || lifeMode === 'clothes') return;
+  if (!navModeEnabled || !localScanEnabled || ((lifeMode === 'grooming' || lifeMode === 'clothes') && !(window.PlaceScan && PlaceScan.running))) return;
   if (!objectModel) {
     if (fieldRecording) fieldSkipNote('no_model');
     // فشل تحميل سابق: نعيد المحاولة بفاصل ثابت بدل التعطل الدائم
@@ -3561,7 +3571,8 @@ function parseVoiceCommand(raw) {
   if (!n) return null;
   const exact = (arr, type) => new Set(arr.map(normalizeArabicCommand)).has(n) ? { type } : null;
   let p = exact(['اسكت', 'توقف', 'بس', 'وقف الصوت'], 'stop'); if (p) return p;
-  p = exact(['صف المكان', 'صف لي المكان', 'وصف المكان', 'اوصف المكان', 'اوصف لي المكان', 'وصف المكان بالتفصيل', 'صف المكان بالتفصيل', 'انا فين', 'وصف المكان كامل', 'صف لي المكان بالكامل', 'صف المكان بالكامل'], 'describePlace'); if (p) return p;
+  p = exact(['صف المكان', 'صف لي المكان', 'وصف المكان', 'اوصف المكان', 'اوصف لي المكان', 'وصف المكان بالتفصيل', 'صف المكان بالتفصيل', 'انا فين', 'اين انا', 'وصف المكان كامل', 'صف لي المكان بالكامل', 'صف المكان بالكامل', 'صف لي ما حولي'], 'describePlace'); if (p) return p;
+  p = exact(['استكمل الجهات', 'اكمل الجهات', 'استكمال الجهات', 'اكمل مسح المكان', 'استكمل المسح'], 'continuePlace'); if (p) return p;
   p = exact(['شغل الكشاف', 'افتح الكشاف', 'شغل الفلاش'], 'torchOn'); if (p) return p;
   p = exact(['اطفي الكشاف', 'اقفل الكشاف', 'اطفي الفلاش'], 'torchOff'); if (p) return p;
   p = exact(['شغل الرصد', 'تشغيل الرصد', 'شغل الملاحه'], 'navOn'); if (p) return p;
@@ -3719,6 +3730,7 @@ async function handleVoiceCommand(cmd) {
   if (!cmd) return; vibrate(25);
   switch (cmd.type) {
     case 'describePlace': if (window.PlaceScan) PlaceScan.start(); return;
+    case 'continuePlace': if (window.PlaceScan) { if (PlaceScan.waitingForContinue) PlaceScan.continueScan(); else speak('لا يوجد مسح ينتظر استكمال الجهات. قل صف المكان للبدء.'); } return;
     case 'stop': if (window.PlaceScan && PlaceScan.running) PlaceScan.cancel(); stopSpeaking(); updateStatus('تم إيقاف الصوت.'); return;
     case 'torchOn': torchManualOverride = true; await applyTorch(true, false, false); return;
     case 'torchOff': torchManualOverride = true; await applyTorch(false, false, false); return;
@@ -4520,7 +4532,7 @@ async function liveRecogTick() {
     const wantHazard = liveHazardEnabled && !liveRecog.off.embed, wantItems = liveItemsEnabled && !liveRecog.off.embed;
     const wantArch = liveArchEnabled && !liveRecog.off.seg;
     const gate = SL.liveGate({
-      running: liveRecog.running, hidden: document.hidden, nav: navModeEnabled, lifeMode,
+      running: liveRecog.running, hidden: document.hidden, nav: navModeEnabled, lifeMode: (window.PlaceScan && PlaceScan.running) ? 'walk' : lifeMode,
       busyUser: isProcessing || isListening || Date.now() < liveRecog.holdUntil,
       speaking: assistantSpeaking,
       videoOk: !!(videoElement && !videoElement.paused && !videoElement.ended && videoElement.videoWidth > 0),

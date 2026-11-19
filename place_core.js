@@ -12,7 +12,7 @@
     { id: 2, name: 'خلفك' },
     { id: 3, name: 'على يسارك' }
   ];
-  const CFG = { minFramesPerSector: 3, minSegPerSector: 1, objMinFrames: 2, objMinShare: 0.3, objMinScore: 0.56, maxPerSector: 5, wallDominant: 0.62, floorDominant: 0.6, sectorHalfWidth: 40, maxSectorSeconds: 14 };
+  const CFG = { minFramesPerSector: 3, minSegPerSector: 2, minSegVotes: 2, minKindSegSamples: 3, objMinFrames: 2, objMinShare: 0.3, objMinScore: 0.56, maxPerSector: 5, wallDominant: 0.62, floorDominant: 0.6, sectorHalfWidth: 40, maxSectorSeconds: 14 };
 
   /* ---------- اتجاه الكاميرا الخلفية (W3C: alpha, beta, gamma بالدرجات) ---------- */
   function yawOf(alpha, beta, gamma) {
@@ -53,11 +53,29 @@
   /* ---------- جلسة المسح ---------- */
   function create(opts) {
     opts = opts || {};
-    const st = { hasSeg: !!opts.hasSeg, hasYaw: !!opts.hasYaw, sectors: SECTORS.map(s => ({ id: s.id, frames: 0, segN: 0, objs: {}, segSum: {}, tiltLow: 0, tiltHigh: 0, retried: 0, started: 0 })), hazards: [], notes: [], cancelled: false };
+    const st = {
+      hasSeg: !!opts.hasSeg,
+      hasCoco: opts.hasCoco !== false,
+      hasYaw: !!opts.hasYaw,
+      sectors: SECTORS.map(s => ({
+        id: s.id, requested: false, frames: 0, cocoFrames: 0, segN: 0,
+        objs: {}, segSum: {}, segVotes: {}, spatialSum: { left: {}, center: {}, right: {} },
+        tiltLow: 0, tiltHigh: 0, retried: 0, started: 0,
+        qualityRejected: 0, qualityReasons: {}
+      })),
+      hazards: [], notes: [], cancelled: false
+    };
     return {
       state: st,
+      markRequested(idx) { const s = st.sectors[idx]; if (s) s.requested = true; },
+      rejectQuality(idx, reason) {
+        const s = st.sectors[idx]; if (!s) return;
+        s.qualityRejected++;
+        if (reason) s.qualityReasons[reason] = (s.qualityReasons[reason] || 0) + 1;
+      },
       addCoco(idx, preds) {
-        const s = st.sectors[idx]; if (!s) return; s.frames++;
+        const s = st.sectors[idx]; if (!s || !st.hasCoco) return;
+        s.frames++; s.cocoFrames++;
         const seen = new Set();
         for (const p of preds || []) {
           if (!p || !p.ar || !(p.score >= CFG.objMinScore)) continue;
@@ -70,24 +88,44 @@
         const per = {}; for (const p of preds || []) if (p && p.ar && p.score >= CFG.objMinScore) per[p.cls] = (per[p.cls] || 0) + 1;
         for (const k of Object.keys(s.objs)) { const o = s.objs[k]; if (per[o.cls] > o.count) o.count = per[o.cls]; }
       },
-      addSeg(idx, fracs) {
-        const s = st.sectors[idx]; if (!s || !fracs || !fracs.length) return; s.segN++;
-        for (const f of fracs) { const l = baseLabel(f.label); s.segSum[l] = (s.segSum[l] || 0) + (Number(f.frac) || 0); }
+      addSeg(idx, fracs, columns) {
+        const s = st.sectors[idx]; if (!s || !fracs || !fracs.length || !st.hasSeg) return;
+        s.segN++;
+        const seenLabels = new Set();
+        for (const f of fracs) {
+          const l = baseLabel(f.label), frac = Number(f.frac) || 0;
+          if (!l) continue;
+          s.segSum[l] = (s.segSum[l] || 0) + frac;
+          if (frac >= 0.015) seenLabels.add(l);
+        }
+        for (const l of seenLabels) s.segVotes[l] = (s.segVotes[l] || 0) + 1;
+        if (columns && typeof columns === 'object') {
+          for (const side of ['left', 'center', 'right']) {
+            for (const item of (columns[side] || [])) {
+              const label = baseLabel(item.label), frac = Number(item.frac) || 0;
+              if (!label || frac <= 0) continue;
+              s.spatialSum[side][label] = (s.spatialSum[side][label] || 0) + frac;
+            }
+          }
+        }
       },
       addTilt(idx, beta) { const s = st.sectors[idx]; if (!s || !Number.isFinite(beta)) return; if (beta < 55) s.tiltLow++; else if (beta > 115) s.tiltHigh++; },
       addHazard(text) { if (text && !st.hazards.includes(text)) st.hazards.push(String(text).slice(0, 120)); },
       sectorStatus(idx) {
-        const s = st.sectors[idx], segOk = !st.hasSeg || s.segN >= CFG.minSegPerSector;
-        return { frames: s.frames, segN: s.segN, done: s.frames >= CFG.minFramesPerSector && segOk, needSeg: st.hasSeg && s.segN < CFG.minSegPerSector };
+        const s = st.sectors[idx]; if (!s) return { frames: 0, segN: 0, done: false, needSeg: st.hasSeg, needCoco: st.hasCoco };
+        const cocoOk = !st.hasCoco || s.cocoFrames >= CFG.minFramesPerSector;
+        const segOk = !st.hasSeg || s.segN >= CFG.minSegPerSector;
+        const sourceOk = st.hasCoco || st.hasSeg;
+        return { frames: s.cocoFrames, segN: s.segN, done: sourceOk && cocoOk && segOk, needSeg: st.hasSeg && !segOk, needCoco: st.hasCoco && !cocoOk };
       },
-      // ماذا نطلب من المستخدم إن كان القطاع غير واضح؟ null = لا شيء
+      // لا نطلب من المستخدم الابتعاد أو المشي أثناء وصف المكان.
       advice(idx) {
         const s = st.sectors[idx], n = Math.max(1, s.segN);
         const avg = l => (s.segSum[l] || 0) / n;
-        if (s.tiltHigh > s.tiltLow + 2) return 'أنزل الهاتف قليلاً';
-        if (s.tiltLow > s.tiltHigh + 2) return 'ارفع الهاتف قليلاً ليصبح مستقيماً';
-        if (s.segN >= 1 && avg('floor') + avg('road') + avg('earth') + avg('sidewalk') + avg('grass') > CFG.floorDominant) return 'ارفع الهاتف قليلاً';
-        if (s.segN >= 1 && avg('wall') > CFG.wallDominant) return 'الحائط قريب جداً؛ ابتعد خطوة إن أمكن أو أمِل الهاتف يميناً ويساراً قليلاً';
+        if (s.tiltHigh > s.tiltLow + 2) return 'اخفض الهاتف قليلاً دون أن تتحرك من مكانك';
+        if (s.tiltLow > s.tiltHigh + 2) return 'ارفع الهاتف قليلاً ليصبح مستقيماً، مع ثبات قدميك';
+        if (s.segN >= 1 && avg('floor') + avg('road') + avg('earth') + avg('sidewalk') + avg('grass') > CFG.floorDominant) return 'ارفع الهاتف قليلاً دون أن تتحرك';
+        if (s.segN >= 1 && avg('wall') > CFG.wallDominant) return 'الحائط يملأ معظم الصورة؛ أدر الهاتف قليلاً يميناً أو يساراً دون أن تتحرك';
         return null;
       },
       cancel() { st.cancelled = true; },
@@ -98,10 +136,10 @@
   function median(a) { if (!a.length) return null; const b = a.slice().sort((x, y) => x - y); return b[Math.floor(b.length / 2)]; }
 
   function sectorSummary(st, s) {
-    const out = { id: s.id, name: SECTORS[s.id].name, frames: s.frames, segN: s.segN, objects: [], landmarks: [], hazards: [], reliable: false, wallClose: false, openAhead: false };
-    const minF = Math.max(CFG.objMinFrames, Math.ceil(s.frames * CFG.objMinShare));
-    const objs = Object.values(s.objs).filter(o => o.frames >= minF).sort((a, b) => (b.priority - a.priority) || (b.frames - a.frames));
-    // دمج نفس الصنف في أكثر من جهة: نبقي الأكثر ظهوراً
+    const out = { id: s.id, name: SECTORS[s.id].name, requested: !!s.requested, frames: s.cocoFrames, segN: s.segN, objects: [], landmarks: [], landmarkDetails: [], hazards: [], reliable: false, wallClose: false, openAhead: false, qualityRejected: s.qualityRejected };
+    const minF = Math.max(CFG.objMinFrames, Math.ceil(s.cocoFrames * CFG.objMinShare));
+    const objs = st.hasCoco ? Object.values(s.objs).filter(o => o.frames >= minF).sort((a, b) => (b.priority - a.priority) || (b.frames - a.frames)) : [];
+    // نحتفظ بأفضل ظهور للصنف داخل الجهة، مع عدم دمج مواضعه المختلفة في إطارات متباعدة.
     const bestByCls = {}; for (const o of objs) if (!bestByCls[o.cls] || o.frames > bestByCls[o.cls].frames) bestByCls[o.cls] = o;
     out.objects = Object.values(bestByCls).sort((a, b) => (b.priority - a.priority) || (b.frames - a.frames)).slice(0, CFG.maxPerSector)
       .map(o => ({ cls: o.cls, ar: o.ar, pos: o.pos, count: o.count || 1, steps: median(o.steps), priority: o.priority, frames: o.frames }));
@@ -109,36 +147,54 @@
       const n = s.segN, avg = {};
       for (const l of Object.keys(s.segSum)) avg[l] = s.segSum[l] / n;
       out.avg = avg;
-      const lm = Object.keys(avg).filter(l => AR[l] && avg[l] >= 0.04 && !['floor', 'ceiling', 'sky', 'wall', 'earth', 'person', 'car', 'chair', 'table'].includes(l)).sort((a, b) => avg[b] - avg[a]).slice(0, 4);
+      const excluded = ['floor', 'ceiling', 'sky', 'wall', 'earth', 'person', 'car', 'chair', 'table'];
+      const lm = Object.keys(avg).filter(l => AR[l] && (s.segVotes[l] || 0) >= CFG.minSegVotes && avg[l] >= ((l === 'door' || l === 'windowpane' || HAZ_SEG[l]) ? 0.015 : 0.035) && !excluded.includes(l)).sort((a, b) => avg[b] - avg[a]).slice(0, 5);
       out.landmarks = lm.map(l => AR[l]);
-      out.hazards = Object.keys(HAZ_SEG).filter(l => avg[l] >= 0.03).map(l => HAZ_SEG[l]).filter((v, i, a) => a.indexOf(v) === i);
-      out.wallClose = avg.wall >= CFG.wallDominant;
-      out.openAhead = (avg.sky || 0) + (avg.road || 0) + (avg.field || 0) >= 0.4;
+      for (const label of lm) {
+        const positions = ['left', 'center', 'right'].map(side => ({ side, frac: (s.spatialSum[side][label] || 0) / n })).sort((a, b) => b.frac - a.frac);
+        const best = positions[0], second = positions[1];
+        let position = null;
+        if (best.frac >= 0.035 && best.frac >= second.frac * 1.2) {
+          position = best.side === 'left' ? 'في الطرف الأيسر من المشهد' : (best.side === 'right' ? 'في الطرف الأيمن من المشهد' : 'في وسط المشهد');
+        }
+        out.landmarkDetails.push({ label, ar: AR[label], position, confidence: Math.min(1, best.frac / Math.max(avg[label], 0.001)) });
+      }
+      out.hazards = Object.keys(HAZ_SEG).filter(l => (s.segVotes[l] || 0) >= CFG.minSegVotes && avg[l] >= 0.03).map(l => HAZ_SEG[l]).filter((v, i, a) => a.indexOf(v) === i);
+      out.wallClose = (s.segVotes.wall || 0) >= CFG.minSegVotes && avg.wall >= CFG.wallDominant;
+      out.openAhead = ['sky', 'road', 'field'].some(l => (s.segVotes[l] || 0) >= CFG.minSegVotes) && ['sky', 'road', 'field'].reduce((v, l) => v + ((s.segVotes[l] || 0) >= CFG.minSegVotes ? (avg[l] || 0) : 0), 0) >= 0.4;
     }
-    out.reliable = s.frames >= CFG.minFramesPerSector && (!st.hasSeg || s.segN >= CFG.minSegPerSector);
+    const cocoOk = !st.hasCoco || s.cocoFrames >= CFG.minFramesPerSector;
+    const segOk = !st.hasSeg || s.segN >= CFG.minSegPerSector;
+    out.reliable = !!s.requested && (st.hasCoco || st.hasSeg) && cocoOk && segOk;
     return out;
   }
 
   function classify(st) {
-    if (!st.hasSeg) return { kind: 'unknown', conf: 0 };
+    if (!st.hasSeg) return { kind: 'unknown', conf: 0, samples: 0 };
     let ind = 0, out = 0, n = 0;
     for (const s of st.sectors) {
-      if (!s.segN) continue; n += s.segN;
-      for (const l of Object.keys(s.segSum)) { ind += (INDOOR[l] || 0) * s.segSum[l]; out += (OUTDOOR[l] || 0) * s.segSum[l]; }
+      if (!s.requested || !s.segN) continue;
+      n += s.segN;
+      for (const l of Object.keys(s.segSum)) {
+        if ((s.segVotes[l] || 0) < CFG.minSegVotes) continue;
+        ind += (INDOOR[l] || 0) * s.segSum[l]; out += (OUTDOOR[l] || 0) * s.segSum[l];
+      }
     }
-    if (!n) return { kind: 'unknown', conf: 0 };
+    if (n < CFG.minKindSegSamples) return { kind: 'unknown', conf: 0, samples: n };
     ind /= n; out /= n; const tot = ind + out;
-    if (tot < 0.15) return { kind: 'unknown', conf: 0 };
+    if (tot < 0.15) return { kind: 'unknown', conf: 0, samples: n };
     const share = Math.max(ind, out) / tot;
-    if (share < 0.62) return { kind: 'unknown', conf: share };
-    return { kind: ind > out ? 'indoor' : 'outdoor', conf: share };
+    if (share < 0.62) return { kind: 'unknown', conf: share, samples: n };
+    return { kind: ind > out ? 'indoor' : 'outdoor', conf: share, samples: n };
   }
 
   function summarize(st) {
     const sectors = st.sectors.map(s => sectorSummary(st, s));
     const kind = classify(st);
     const covered = sectors.filter(s => s.reliable).length;
-    return { sectors, kind, covered, total: 4, hazards: st.hazards.slice(), hasSeg: st.hasSeg, hasYaw: st.hasYaw, cancelled: st.cancelled };
+    const scanned = sectors.filter(s => s.requested).length;
+    const qualityRejected = sectors.reduce((n, s) => n + s.qualityRejected, 0);
+    return { sectors, kind, covered, total: 4, scanned, qualityRejected, hazards: st.hazards.slice(), hasSeg: st.hasSeg, hasCoco: st.hasCoco, hasYaw: st.hasYaw, cancelled: st.cancelled };
   }
 
   /* ---------- الصياغة العربية ---------- */
@@ -147,29 +203,41 @@
 
   function narrate(sum) {
     const L = [];
-    // 1) السلامة أولاً
+    // 1) السلامة أولاً: ما رُصد كاحتمال، لا كحقيقة مؤكدة.
     if (sum.hazards.length) L.push('تنبيه أولاً: رُصد أثناء الفحص ' + sum.hazards.join('، ') + '. تحرّك بحذر واستعمل العصا.');
-    const segHaz = []; sum.sectors.forEach(s => s.hazards.forEach(h => segHaz.push(h + ' ' + s.name)));
+    const segHaz = []; sum.sectors.forEach(s => { if (s.requested) s.hazards.forEach(h => segHaz.push(h + ' ' + s.name)); });
     if (segHaz.length) L.push('احتمال وجود ' + segHaz.slice(0, 3).join('، ') + '. تأكد بعصاك قبل أي حركة.');
-    const near = []; sum.sectors.forEach(s => s.objects.forEach(o => { if (o.priority >= 3 && Number.isFinite(o.steps) && o.steps <= 3) near.push(o.ar + ' ' + s.name); }));
-    if (near.length) L.push('قريب منك: ' + near.slice(0, 3).join('، ') + '.');
-    // 2) نوع المكان (بحذر)
+    const near = []; sum.sectors.forEach(s => { if (s.requested) s.objects.forEach(o => { if (o.priority >= 3 && Number.isFinite(o.steps) && o.steps <= 3) near.push(o.ar + ' ' + s.name); }); });
+    if (near.length) L.push('قريب منك وفق تقدير الصورة: ' + near.slice(0, 3).join('، ') + '.');
+    // 2) نوع المكان لا يُقال إلا بعد عدد كافٍ من عينات التقسيم.
     if (sum.kind.kind === 'indoor') L.push('يبدو أنك داخل مكان مغلق' + (sum.kind.conf < 0.75 ? ' (تقدير غير مؤكد)' : '') + '.');
     else if (sum.kind.kind === 'outdoor') L.push('يبدو أنك في مكان مفتوح أو في الشارع' + (sum.kind.conf < 0.75 ? ' (تقدير غير مؤكد)' : '') + '.');
-    else if (sum.hasSeg) L.push('لم أتمكن من تحديد إن كان المكان مغلقاً أو مفتوحاً بثقة.');
-    // 3) كل جهة
+    else if (sum.hasSeg) L.push('لم أتمكن من تحديد إن كان المكان مغلقاً أو مفتوحاً بعدد كافٍ من القراءات المتوافقة.');
+    // 3) الجهات التي وُجهت إليها الكاميرا فقط؛ لا نخترع وصفاً لبقية الجهات.
     for (const s of sum.sectors) {
-      if (!s.reliable) { L.push(s.name + ': لم أحصل على رؤية كافية، لا أستطيع وصفها بثقة.'); continue; }
+      if (!s.requested) continue;
+      if (!s.reliable) {
+        L.push(s.name + ': لم أحصل على قراءات كافية لوصف هذه الجهة بثقة.');
+        continue;
+      }
       const parts = [];
-      if (s.wallClose) parts.push('حائط قريب');
-      else if (s.openAhead) parts.push('مساحة مفتوحة');
-      for (const o of s.objects) parts.push(countWord(o.ar, o.count) + (o.count < 2 && Number.isFinite(o.steps) ? ' ' + stepsText(o.steps) : '') + (o.pos && o.pos !== 'أمامك' && s.id === 0 ? ' ' + o.pos : ''));
-      for (const l of s.landmarks) if (!parts.includes(l)) parts.push(l);
-      L.push(s.name + ': ' + (parts.length ? parts.join('، ') : 'لا شيء واضح') + '.');
+      if (s.wallClose) parts.push('حائط يشغل مساحة كبيرة من المشهد');
+      else if (s.openAhead) parts.push('تظهر مساحة مفتوحة');
+      for (const o of s.objects) {
+        const pos = o.pos === 'على اليسار' ? 'في الطرف الأيسر من المشهد' : (o.pos === 'على اليمين' ? 'في الطرف الأيمن من المشهد' : '');
+        parts.push(countWord(o.ar, o.count) + (o.count < 2 && Number.isFinite(o.steps) ? '، ' + stepsText(o.steps) : '') + (pos ? ' ' + pos : ''));
+      }
+      for (const l of s.landmarkDetails || []) {
+        const phrase = l.ar + (l.position ? ' ' + l.position : '');
+        if (!parts.some(p => p.includes(l.ar))) parts.push(phrase);
+      }
+      L.push(s.name + ': ' + (parts.length ? parts.join('، ') : 'لم يظهر معلم واضح يمكن تسميته') + '.');
     }
-    // 4) أمانة التغطية
-    if (sum.covered < 4) L.push('تنبيه: وصفت ' + sum.covered + ' من 4 جهات فقط بثقة.');
-    L.push('هذا وصف تقريبي من الهاتف وحده؛ الخطوات تقدير، فلا تعتمد عليه وحده وتأكد بالعصا.');
+    // 4) أمانة التغطية والسلامة.
+    if (sum.scanned < 4) L.push('لم أفحص بقية الجهات؛ الوصف يقتصر على الاتجاهات التي وُجهت إليها الكاميرا فقط.');
+    if (sum.covered < sum.scanned) L.push('اكتملت قراءات ' + sum.covered + ' من ' + sum.scanned + ' جهات طلبت فحصها بثقة كافية.');
+    if (sum.qualityRejected) L.push('استبعدت بعض الإطارات لضعف الإضاءة أو عدم صلاحية الصورة؛ أبعد يدك عن العدسة وحسّن الإضاءة ثم أعد الفحص.');
+    L.push('هذا وصف بصري تقريبي للمشهد من موضعك، وليس تحديداً لاسم المبنى أو عنوانك. لا يدل على خلو الطريق من العوائق، فلا تتحرك اعتماداً عليه وحده وتأكد بالعصا.');
     return L.join(' ');
   }
 

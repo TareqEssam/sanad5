@@ -8,6 +8,8 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const now = () => fieldClockNow();
   const vib = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+  const RESTORE_KEY = 'sanad_field_restore_v1';
+  const METHODS = [['tape', '📏 شريط قياس'], ['marks', '🟦 علامات أرضية'], ['steps', '👣 خطوات (تقريبي)'], ['eye', '👁 تقدير بالعين (تقريبي)']];
   const fw = { el: null, plan: null, stage: 'idle', trial: 1, cp: 0, attempt: 1, redo: false, visited: new Set(), shownTrial: 0, run: null,
     runTimer: null, preTimer: null, sampler: null, lagTimer: null, lag: { max: 0, last: 0 }, longTasks: { n: 0, ms: 0 }, battery: null,
     actual: null, lastResult: null, skipSensors: false, lastGuidance: [], answersDraft: {}, savedOnce: false, exportedOnce: false };
@@ -47,7 +49,7 @@
     o.connection = n.connection ? { effectiveType: n.connection.effectiveType, saveData: n.connection.saveData } : null;
     o.storage = await safe(async () => { const e = n.storage && n.storage.estimate ? await n.storage.estimate() : null; return { persisted: n.storage && n.storage.persisted ? await n.storage.persisted() : null, usageMB: e ? Math.round(e.usage / 1048576) : null }; });
     o.sensorsApi = { deviceOrientation: 'DeviceOrientationEvent' in window, deviceMotion: 'DeviceMotionEvent' in window, motionNeedsPermission: typeof (window.DeviceMotionEvent && DeviceMotionEvent.requestPermission) === 'function', accelerometer: 'Accelerometer' in window, gyroscope: 'Gyroscope' in window, wakeLock: 'wakeLock' in n, vibrate: 'vibrate' in n };
-    o.speech = await safe(() => { if (!('speechSynthesis' in window)) return { available: false }; const v = speechSynthesis.getVoices() || []; return { available: true, voices: v.length, arabic: v.filter(x => /^ar/i.test(x.lang)).slice(0, 5).map(x => ({ name: x.name, lang: x.lang, local: x.localService })) }; });
+    o.speech = await safe(() => { if (!('speechSynthesis' in window)) return { available: false }; const v = speechSynthesis.getVoices() || []; const ar = v.filter(x => /^ar/i.test(x.lang)); return { available: true, voices: v.length, arabicVoices: ar.length, arabicLocalVoice: ar.some(x => x.localService) }; });
     o.cameraPermission = await safe(async () => (await n.permissions.query({ name: 'camera' })).state);
     o.videoInputCount = await safe(async () => (await n.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput').length);
     o.jsHeap = performance.memory ? { usedMB: Math.round(performance.memory.usedJSHeapSize / 1048576), limitMB: Math.round(performance.memory.jsHeapSizeLimit / 1048576) } : null;
@@ -57,7 +59,7 @@
     const t = videoStream && videoStream.getVideoTracks && videoStream.getVideoTracks()[0]; if (!t) return null;
     let s = {}, c = {}; try { s = t.getSettings() || {}; } catch (e) {} try { c = t.getCapabilities ? t.getCapabilities() : {}; } catch (e) {}
     const rng = r => r && typeof r === 'object' ? { min: r.min, max: r.max } : (r === undefined ? null : r);
-    return { label: t.label || null, readyState: t.readyState, settings: { width: s.width, height: s.height, frameRate: s.frameRate, facingMode: s.facingMode, zoom: s.zoom, focusMode: s.focusMode, aspectRatio: s.aspectRatio },
+    return { readyState: t.readyState, settings: { width: s.width, height: s.height, frameRate: s.frameRate, facingMode: s.facingMode, zoom: s.zoom, focusMode: s.focusMode, aspectRatio: s.aspectRatio },
       capabilities: { width: rng(c.width), height: rng(c.height), frameRate: rng(c.frameRate), zoom: rng(c.zoom), torch: c.torch === true, focusMode: c.focusMode || null },
       video: { videoWidth: videoElement.videoWidth, videoHeight: videoElement.videoHeight } };
   }
@@ -149,6 +151,10 @@
     if (!participant) { say('اكتب رمز مشارك غير شخصي أولًا، مثل P03 (أحرف إنجليزية وأرقام فقط).'); $('field-participant-code').focus(); return; }
     if (!$('field-consent-check').checked) { say('أكّد مربع الخصوصية والسلامة أولًا.'); return; }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { say('تشغيل الكاميرا يحتاج HTTPS أو localhost.'); return; }
+    const cl = id => String(($(id) || {}).value || '').replace(/[^\w .\-+()\u0600-\u06FF]/g, '').trim().slice(0, 40);
+    const phone = { make: cl('field-phone-make'), model: cl('field-phone-model'), os: cl('field-phone-os'), unknown: !!($('field-phone-unknown') || {}).checked };
+    if (!phone.unknown && (!phone.make || !phone.model || !phone.os)) { say('اكتب شركة الهاتف وطرازه وإصدار نظامه (مطلوبة لتحليل الأداء)، أو علّم «لا أعرف هذه المعلومات».'); (($('field-phone-make') || {}).focus || (() => {})).call($('field-phone-make')); return; }
+    fw.phone = phone;
     const scene = $('field-scene-select').value, plan = FC.plan(scene);
     // أذونات الحساسات داخل لمسة المستخدم (iOS) — تُطلب كلها دون انتظار متسلسل
     const reqs = []; fieldMotionPermission = 'not-required';
@@ -162,22 +168,22 @@
     }
     // الرصد المستمر يلزم تشغيله لأن الاختبار يقيسه؛ نفعّله تلقائيًا ونوثق ذلك
     fw.restore = { localScan: localScanEnabled, nav: navModeEnabled, arch: !!liveArchEnabled, life: lifeMode };
-    const clean = id => String(($(id) || {}).value || '').replace(/[^\w .\-+()\u0600-\u06FF]/g, '').trim().slice(0, 40);
-    fw.manual = { model: clean('field-phone-model'), os: clean('field-phone-os') };
+    try { localStorage.setItem(RESTORE_KEY, JSON.stringify(fw.restore)); } catch (e) {}   // نسخة دائمة تُستعاد حتى لو أُغلقت الصفحة
+    fw.manual = { make: fw.phone.unknown ? 'غير معروف' : fw.phone.make, model: fw.phone.unknown ? 'غير معروف' : fw.phone.model, os: fw.phone.unknown ? 'غير معروف' : fw.phone.os, unknownFlag: fw.phone.unknown };
     const autoEnabled = [];
     if (!localScanEnabled) { localScanEnabled = true; try { writeLS(LS_LOCAL_SCAN, true); } catch (e) {} autoEnabled.push('localScan'); }
     if (!navModeEnabled) { setNavMode(true, false); autoEnabled.push('navMode'); }
     let prior = []; try { prior = (await dbAll()).filter(s => s.participantCode === participant && s.scene === scene); } catch (e) {}
-    try { setLifeMode('walk', true); await startApp(true); } catch (e) { say('تعذر بدء التطبيق والكاميرا: ' + (e.message || e)); return; }
+    try { setLifeMode('walk', true); await startApp(true); } catch (e) { try { restoreAppSettings(); } catch (e2) {} say('تعذر بدء التطبيق والكاميرا: ' + (e.message || e) + ' — أُعيدت إعدادات التطبيق كما كانت.'); return; }
     fieldStartedAt = now(); fieldLastDetectAt = 0; fieldSkips = {};
     fieldRecording = { schema: 'sanad-field-session-v2', protocol: FC.PROTOCOL_VERSION, id: 'sf_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8), run: prior.length + 1, participantCode: participant,
       scene, sceneTitle: plan.title, startedAt: new Date().toISOString(), plan: { trials: plan.trials.length, totalCheckpoints: plan.totalCheckpoints, checkpoints: plan.trials.map(t => t.checkpoints.map(c => ({ id: c.id, distanceM: c.distanceM || null, rule: c.rule.type })) ) },
-      device: { userAgent: navigator.userAgent, manualModel: fw.manual.model || null, manualOs: fw.manual.os || null }, deviceProfile: null, camera: cameraInfo(), appConfig: Object.assign(appConfig(), { autoEnabledForTest: autoEnabled }),
+      device: { userAgent: navigator.userAgent, manualMake: fw.manual.make, manualModel: fw.manual.model, manualOs: fw.manual.os, phoneInfoUnknown: fw.manual.unknownFlag }, deviceProfile: null, camera: cameraInfo(), appConfig: Object.assign(appConfig(), { autoEnabledForTest: autoEnabled }),
       sensors: { deviceMotionPermission: fieldMotionPermission, deviceOrientationAvailable: !!window.DeviceOrientationEvent, deviceMotionAvailable: !!window.DeviceMotionEvent },
       notes: 'No images, video, or audio are recorded. bbox values are pixels of the camera frame (frameWidth x frameHeight).', events: [] };
     fieldPush('session_started', { scene, participantCode: participant, run: fieldRecording.run });
-    fw.plan = plan; fw.trial = 1; fw.cp = 0; fw.attempt = 1; fw.redo = false; fw.visited = new Set(); fw.shownTrial = 0; fw.skipSensors = false; fw.savedOnce = false; fw.exportedOnce = false; fw.answersDraft = {};
-    collectProfile().then(p => { if (fieldRecording) { fieldRecording.deviceProfile = p; fieldRecording.device = { userAgent: navigator.userAgent, manualModel: fw.manual.model || null, manualOs: fw.manual.os || null, model: p.uaData && p.uaData.high && p.uaData.high.model || null }; fieldPush('device_profile', { gpu: p.gpu && p.gpu.renderer || null, batteryLevel: p.battery && p.battery.level }); } }).catch(() => {});
+    fw.plan = plan; fw.trial = 1; fw.cp = 0; fw.attempt = 1; fw.redo = false; fw.visited = new Set(); fw.shownTrial = 0; fw.skipSensors = false; fw.method = null; fieldSegment = null; fw.savedOnce = false; fw.exportedOnce = false; fw.answersDraft = {};
+    collectProfile().then(p => { if (fieldRecording) { fieldRecording.deviceProfile = p; fieldRecording.device = { userAgent: navigator.userAgent, manualMake: fw.manual.make, manualModel: fw.manual.model, manualOs: fw.manual.os, phoneInfoUnknown: fw.manual.unknownFlag, model: p.uaData && p.uaData.high && p.uaData.high.model || null }; fieldPush('device_profile', { gpu: p.gpu && p.gpu.renderer || null, batteryLevel: p.battery && p.battery.level }); } }).catch(() => {});
     setTimeout(() => { if (fieldRecording) fieldRecording.camera = cameraInfo(); }, 2500);
     startSampler();
     if (fieldAutosaveTimer) clearInterval(fieldAutosaveTimer);
@@ -234,7 +240,7 @@
   function fwAdvance() {
     const nt = nextTarget();
     if (nt.type === 'summary') { fw.stage = 'summary'; saveSession(false).catch(() => {}); fw.savedOnce = true; }
-    else if (nt.type === 'answers') { fw.trial = nt.trial; fw.stage = 'answers'; fw.answersDraft = {}; }
+    else if (nt.type === 'answers') { fw.trial = nt.trial; fw.stage = 'answers'; fw.answersDraft = {}; setTimeout(fwAnswersRefresh, 0); }
     else { const changed = nt.trial !== fw.shownTrial; fw.trial = nt.trial; fw.cp = nt.cp; fw.attempt = (summary().trials[nt.trial - 1].checkpoints[nt.cp].attempts || 0) + 1;
       fw.actual = fw.plan.trials[nt.trial - 1].checkpoints[nt.cp].distanceM || null;
       if (changed) { fw.stage = 'trial_intro'; } else fw.stage = 'cp_ready'; }
@@ -244,7 +250,8 @@
   /* ====================== نقطة القياس ====================== */
   const curTrial = () => fw.plan.trials[fw.trial - 1], curCp = () => curTrial().checkpoints[fw.cp];
   function startCheckpoint() {
-    const cp = curCp(), ev = fieldPush('checkpoint_start', { trial: fw.trial, cp: cp.id, attempt: fw.attempt, targetDistanceM: cp.distanceM || null, actualDistanceM: cp.distanceM ? fw.actual : null, ruleType: cp.rule.type, minHoldMs: cp.minHoldMs, appConfig: { liveArchEnabled: !!liveArchEnabled, torchOn: !!torchOn, lifeMode } });
+    const cp = curCp(); fieldSegment = 't' + fw.trial + '.' + cp.id + '.a' + fw.attempt;
+    const dm = cp.distanceM && fw.method ? FC.DIST_METHODS[fw.method] : null, ev = fieldPush('checkpoint_start', { trial: fw.trial, cp: cp.id, attempt: fw.attempt, segment: fieldSegment, targetDistanceM: cp.distanceM || null, actualDistanceM: cp.distanceM ? fw.actual : null, distanceMethod: cp.distanceM ? fw.method : null, distanceUncertaintyM: dm ? Math.round(dm.uncertainty(fw.actual) * 100) / 100 : null, referenceGrade: dm ? dm.grade : null, ruleType: cp.rule.type, minHoldMs: cp.minHoldMs, appConfig: { liveArchEnabled: !!liveArchEnabled, torchOn: !!torchOn, lifeMode } });
     fw.run = { a: ev.t, startedAt: now(), lastRequiredAt: 0 };
     fw.stage = 'cp_run'; fwRender();
     if (fw.runTimer) clearInterval(fw.runTimer); fw.runTimer = setInterval(runTick, 400); vib(40);
@@ -271,13 +278,16 @@
     const cp = curCp(), t = Math.round(now() - fieldStartedAt);
     const ev = FC.evaluateCheckpoint(cp, fieldRecording.events, fw.run.a, t, { sensorsExpected: !fw.skipSensors });
     const status = ev.ok ? 'ok' : 'failed';
-    fieldPush('checkpoint_end', { trial: fw.trial, cp: cp.id, attempt: fw.attempt, status, manual: !!manual, durationMs: t - fw.run.a, checks: ev.checks, problems: ev.problems, evidence: ev.evidence });
+    const dm2 = cp.distanceM && fw.method ? FC.DIST_METHODS[fw.method] : null;
+    fieldPush('checkpoint_end', { trial: fw.trial, cp: cp.id, attempt: fw.attempt, segment: fieldSegment, status, manual: !!manual, durationMs: t - fw.run.a, checks: ev.checks, problems: ev.problems, evidence: ev.evidence, stability: ev.stability, sensorWarn: ev.sensorWarn,
+      distance: cp.distanceM ? { target: cp.distanceM, actual: fw.actual, method: fw.method, uncertaintyM: dm2 ? Math.round(dm2.uncertainty(fw.actual) * 100) / 100 : null, grade: ev.referenceGrade } : null });
+    fieldSegment = null;
     fw.visited.add(fw.trial + ':' + cp.id); fw.lastResult = ev; fw.lastGuidance = ev.guidance;
     fw.stage = 'cp_result'; fwRender(); vib(ev.ok ? [60] : [120, 60, 120]);
     if (ev.ok && !ev.sensorWarn) setTimeout(() => { if (fw.stage === 'cp_result' && fw.lastResult === ev) fwAdvance(); }, 1600);
   }
   function skipCheckpoint() {
-    const cp = curCp(); fieldPush('checkpoint_end', { trial: fw.trial, cp: cp.id, attempt: fw.attempt, status: 'skipped', problems: ['تخطّاها المرافق'] }); fw.visited.add(fw.trial + ':' + cp.id); fwAdvance();
+    const cp = curCp(); fieldPush('checkpoint_end', { trial: fw.trial, cp: cp.id, attempt: fw.attempt, status: 'skipped', problems: ['تخطّاها المرافق'] }); fieldSegment = null; fw.visited.add(fw.trial + ':' + cp.id); fwAdvance();
   }
   function mark(kind) {
     const cp = fw.stage === 'cp_run' ? curCp() : null;
@@ -296,6 +306,8 @@
     skipSensors() { fw.skipSensors = true; fieldPush('sensors_skipped', {}); fwRenderPre(); },
     startTrials() { if (fw.preTimer) clearInterval(fw.preTimer); fieldPush('preflight_passed', { items: preItems().map(i => ({ id: i.id, ok: i.ok })) }); fwAdvance(); },
     beginTrial() { fw.shownTrial = fw.trial; fieldPush('trial_start', { trial: fw.trial, title: curTrial().title }); fw.stage = 'cp_ready'; fwRender(); },
+    method(arg) { fw.method = arg; fwRender(); },
+    note() { const txt = (window.prompt('اكتب ملاحظتك: ما الذي رأيته ويختلف عما سجّله التطبيق أو نبّه إليه؟') || '').trim().slice(0, 300); if (!txt) return; fieldPush('facilitator_note', { trial: fw.trial, cp: fw.stage === 'cp_run' || fw.stage === 'cp_result' ? curCp().id : null, attempt: fw.attempt, text: txt }); const el = $('fw-note'); if (el) el.textContent = 'سُجّلت ملاحظتك.'; },
     startCp: startCheckpoint,
     endCp() { finishCheckpoint(true); },
     skipCp: skipCheckpoint,
@@ -303,8 +315,9 @@
     nextAfterResult() { fwAdvance(); },
     dist(arg) { const v = Math.max(0.3, Math.round((fw.actual + Number(arg)) * 100) / 100); fw.actual = v; const el = $('fw-dist'); if (el) el.textContent = v.toFixed(2).replace(/0$/, '') + ' م'; },
     mark(arg) { mark(arg); }, undo: undoMarker,
-    ans(arg) { const [id, d] = arg.split(':'); const a = curTrial().answers.find(x => x.id === id); const cur = fw.answersDraft[id] == null ? (a.min || 0) : fw.answersDraft[id]; fw.answersDraft[id] = Math.max(a.min || 0, Math.min(a.max || 999, cur + Number(d))); const el = $('fw-ans-' + id); if (el) el.textContent = fw.answersDraft[id]; },
-    saveAnswers() { const out = {}; curTrial().answers.forEach(a => { out[a.id] = fw.answersDraft[a.id] == null ? (a.min || 0) : fw.answersDraft[a.id]; }); fieldPush('trial_answer', { trial: fw.trial, answers: out }); fwAdvance(); },
+    ans(arg) { const [id, d] = arg.split(':'); const a = curTrial().answers.find(x => x.id === id); const cur = typeof fw.answersDraft[id] === 'number' ? fw.answersDraft[id] : null; const next = cur === null ? (Number(d) > 0 ? Math.max(a.min || 0, 1) : (a.min || 0)) : cur + Number(d); fw.answersDraft[id] = Math.max(a.min || 0, Math.min(a.max || 999, next)); fwAnswersRefresh(); },
+    unsure(arg) { fw.answersDraft[arg] = fw.answersDraft[arg] === 'unsure' ? null : 'unsure'; fwAnswersRefresh(); },
+    saveAnswers() { const out = {}, unsure = {}; for (const a of curTrial().answers) { const v = fw.answersDraft[a.id]; if (v === 'unsure') { out[a.id] = null; unsure[a.id] = true; } else if (typeof v === 'number') out[a.id] = v; else return; } fieldPush('trial_answer', { trial: fw.trial, answers: out, unsure, confirmedByFacilitator: true }); fwAdvance(); },
     async saveFile() { await saveSession(false); const snap = stampSession(false); snap.completed = true; download(snap, snap.id + '.json'); fw.exportedOnce = true; fwSetNote('نُزِّل الملف وحُفظت نسخة على الهاتف. أرسله لفريق التطوير.'); },
     async shareFile() { await saveSession(false); const snap = stampSession(false); const r = await shareOrDownload(snap, snap.id + '.json'); fw.exportedOnce = r !== 'cancelled'; fwSetNote(r === 'shared' ? 'تمت المشاركة.' : (r === 'cancelled' ? 'أُلغيت المشاركة.' : 'المشاركة المباشرة غير مدعومة هنا فنُزِّل الملف.')); },
     redoMissing() { fw.redo = true; fw.visited = new Set(); fieldPush('redo_missing', {}); fwAdvance(); },
@@ -312,6 +325,11 @@
     async finish() { await endSession('finished'); },
     async quit() { if (!confirm('إنهاء الجلسة الآن؟ سيُحفظ ما سُجّل كجلسة ناقصة ويمكنك إعادتها لاحقًا.')) return; await endSession('quit'); }
   };
+  function fwAnswersRefresh() {
+    if (fw.stage !== 'answers') return; let all = true;
+    for (const a of curTrial().answers) { const v = fw.answersDraft[a.id], el = $('fw-ans-' + a.id), u = $('fw-uns-' + a.id); if (el) el.textContent = typeof v === 'number' ? v : (v === 'unsure' ? 'غير محدد' : '—'); if (u) u.className = 'fw-b sm ' + (v === 'unsure' ? 'amb' : 'sec'); if (!(typeof v === 'number' || v === 'unsure')) all = false; }
+    const b = $('fw-ans-save'); if (b) b.disabled = !all;
+  }
   function fwSetNote(m) { const el = $('fw-save-note'); if (el) el.textContent = m; }
   window.markFieldEvent = k => { if (fieldRecording) mark(k); };
   window.fwRequestExit = () => { if (fieldRecording) fwRender(); };
@@ -320,16 +338,25 @@
   // يعيد إعدادات التطبيق إلى ما كانت عليه قبل الاختبار حتى لا يتغير سلوك الاستعمال العادي
   function restoreAppSettings() {
     const r = fw.restore; if (!r) return; const done = [];
+    try { localStorage.removeItem(RESTORE_KEY); } catch (e) {}
     if (localScanEnabled !== r.localScan) { localScanEnabled = r.localScan; try { writeLS(LS_LOCAL_SCAN, r.localScan); } catch (e) {} try { liveLocalScanCheckbox.checked = r.localScan; } catch (e) {} done.push('localScan'); }
     if (navModeEnabled !== r.nav) { setNavMode(r.nav, false); done.push('navMode'); }
     if (!!liveArchEnabled !== r.arch) { const c = $('live-arch-checkbox'); if (c) { c.checked = r.arch; c.dispatchEvent(new Event('change')); } else liveArchEnabled = r.arch; done.push('liveArch'); }
     if (lifeMode !== r.life) { setLifeMode(r.life, true); done.push('lifeMode'); }
     fieldPush('settings_restored', { restored: done }); fw.restore = null;
   }
+  // استعادة بعد جلسة انقطعت (إغلاق الصفحة/تعطل) قبل أن تصل إلى endSession
+  function recoverInterruptedSettings() {
+    let b = null; try { b = JSON.parse(localStorage.getItem(RESTORE_KEY) || 'null'); } catch (e) {}
+    if (!b || fieldRecording) return;
+    fw.restore = b; try { restoreAppSettings(); } catch (e) {}
+    const st = $('field-recorder-settings-status'); if (st) st.textContent = 'انقطعت جلسة اختبار سابقة؛ أُعيدت إعدادات التطبيق إلى حالتها الأصلية. الجلسة الناقصة محفوظة ويمكن تصديرها.';
+  }
+  window.addEventListener('load', () => setTimeout(recoverInterruptedSettings, 1500));
   async function endSession(reason) {
     if (!fieldRecording) return;
     if (fw.runTimer) clearInterval(fw.runTimer); if (fw.preTimer) clearInterval(fw.preTimer);
-    fieldPush('session_ended', { reason }); stopSampler();
+    fieldSegment = null; fieldPush('session_ended', { reason }); stopSampler();
     try { restoreAppSettings(); } catch (e) {} if (fieldAutosaveTimer) { clearInterval(fieldAutosaveTimer); fieldAutosaveTimer = null; }
     let snap = null; try { snap = await saveSession(true); } catch (e) { try { snap = stampSession(true); } catch (e2) {} }
     const exported = fw.exportedOnce; fw.restore = null; fieldRecording = null; fw.stage = 'idle'; if (fw.el) fw.el.style.display = 'none';
@@ -386,16 +413,17 @@
       if (!run) {
         h += '<div class="fw-card"><ol class="fw-ol">' + cp.lines.map(s => '<li>' + esc(s) + '</li>').join('') + '</ol></div>';
         if (cp.distanceM) h += '<div class="fw-card"><div>المسافة <b>الفعلية</b> بين الهاتف والهدف (عدّلها إن لم تكن بالضبط ' + String(cp.distanceM).replace('.', '٫') + ' م):</div><div class="fw-step"><button data-act="dist" data-arg="-0.25">−</button><b id="fw-dist">' + fw.actual.toFixed(2).replace(/0$/, '') + ' م</b><button data-act="dist" data-arg="0.25">+</button></div></div>';
+        if (cp.distanceM) h += '<div class="fw-card"><div>كيف قِست هذه المسافة؟ <b>(مطلوب)</b></div><div class="fw-grid">' + METHODS.map(m => '<button class="fw-b sm ' + (fw.method === m[0] ? '' : 'sec') + '" data-act="method" data-arg="' + m[0] + '">' + m[1] + '</button>').join('') + '</div><div style="font-size:12px;color:#94a3b8">الشريط والعلامات مرجع دقيق للمعايرة؛ الخطوات والتقدير بالعين تُحفظ كمرجع تقريبي.</div></div>';
         if (cp.rule.type === 'light') h += '<div class="fw-card" id="fw-light" style="font-weight:800"></div>';
-        h += '<button class="fw-b" data-act="startCp">▶ بدء القياس</button><button class="fw-b sec sm" data-act="skipCp">⏭ تخطَّ هذه النقطة (تُحفظ ناقصة)</button>';
-        if (cp.rule.type === 'light') { const tick = () => { const d = fieldRecording && fieldRecording.events.slice(-60).reverse().find(e => e.type === 'detection'); const q = d && d.data.frameQuality, l = $('fw-light'); if (l && fw.stage === 'cp_ready') { l.textContent = q ? 'الإضاءة الحالية: ' + q.lightLabel + ' (' + q.meanLuminance + ')' + (q.torchOn ? ' — الكشاف يعمل' : '') : 'بانتظار قراءة الإضاءة…'; setTimeout(tick, 800); } }; setTimeout(tick, 100); }
+        h += '<button class="fw-b" data-act="startCp"' + (cp.distanceM && !fw.method ? ' disabled' : '') + '>' + (cp.distanceM && !fw.method ? 'اختر طريقة قياس المسافة أولًا' : '▶ بدء القياس') + '</button><button class="fw-b sec sm" data-act="skipCp">⏭ تخطَّ هذه النقطة (تُحفظ ناقصة)</button>';
+        if (cp.rule.type === 'light') { const chain = fw.lightChain = (fw.lightChain || 0) + 1; const tick = () => { const d = fieldRecording && fieldRecording.events.slice(-60).reverse().find(e => e.type === 'detection'); const q = d && d.data.frameQuality, l = $('fw-light'); if (l && fw.stage === 'cp_ready' && chain === fw.lightChain) { l.textContent = q ? 'الإضاءة الحالية: ' + q.lightLabel + ' (' + q.meanLuminance + ')' + (q.torchOn ? ' — الكشاف يعمل' : '') : 'بانتظار قراءة الإضاءة…'; setTimeout(tick, 800); } }; setTimeout(tick, 100); }
       } else {
         h += '<div class="big" id="fw-time">0 ث</div><div class="fw-barbox"><div id="fw-bar"></div></div><div class="fw-card" id="fw-prog" style="font-weight:700">…</div>';
         if (cp.rule.type === 'light') h += '<div class="fw-card" id="fw-light" style="font-weight:800"></div>';
         h += cp.distanceM ? '<p style="color:#fde68a">🛑 لا تتحرك ولا تغيّر زاوية الهاتف حتى يكتمل القياس.</p>' : '';
         if (cp.markers && cp.markers.length) h += '<div class="fw-grid">' + cp.markers.map(m => '<button class="fw-b ' + (m.kind === 'vehicle_passed' ? 'blu' : 'amb') + '" data-act="mark" data-arg="' + m.kind + '">' + esc(m.label) + '</button>').join('') + '</div>';
         h += '<div class="fw-grid"><button class="fw-b sec sm" data-act="mark" data-arg="false_alarm">🔔 سمعت إنذارًا غير صحيح</button><button class="fw-b sec sm" data-act="mark" data-arg="missed_hazard">⚠️ كان هناك خطر لم يُنبَّه له</button></div>' +
-          '<div class="fw-grid"><button class="fw-b sec sm" data-act="mark" data-arg="scene_note">📝 علّم لحظة</button><button class="fw-b sec sm" data-act="undo">↩️ تراجع عن آخر علامة</button></div><div id="fw-note" style="font-size:13px;color:#99f6e4;min-height:20px"></div>' +
+          '<div class="fw-grid"><button class="fw-b sec sm" data-act="mark" data-arg="scene_note">📝 علّم لحظة</button><button class="fw-b sec sm" data-act="note">✍️ اكتب ملاحظة</button><button class="fw-b sec sm" data-act="undo">↩️ تراجع عن آخر علامة</button></div><div id="fw-note" style="font-size:13px;color:#99f6e4;min-height:20px"></div>' +
           '<button class="fw-b sec sm" data-act="endCp">⏹ إنهاء القياس الآن</button>';
       }
     } else if (fw.stage === 'cp_result') {
@@ -403,17 +431,18 @@
       h += r.ok ? '<h2 style="color:#86efac">✅ تم تسجيل القراءة المطلوبة</h2>' : '<h2 style="color:#fca5a5">❌ لم تُسجَّل القراءة المطلوبة — يجب إعادة هذه النقطة</h2>';
       h += '<div class="fw-card">' + r.checks.map(c => '<div>' + (c.ok ? '✅' : (c.blocking === false ? '⚠️' : '❌')) + ' ' + esc(c.label) + ': ' + esc(c.text) + '</div>').join('') + '</div>';
       if (!r.ok) h += '<div class="fw-card fw-warn"><b>ماذا حدث:</b><ul class="fw-ol">' + r.problems.map(s => '<li>' + esc(s) + '</li>').join('') + '</ul><b>ماذا تفعل الآن:</b><ul class="fw-ol">' + r.guidance.map(s => '<li>' + esc(s) + '</li>').join('') + '</ul></div>' +
-        '<button class="fw-b" data-act="retryCp">🔁 أعد هذه النقطة الآن</button><button class="fw-b sec sm" data-act="skipCp">⏭ تخطَّ (تُحفظ ناقصة)</button>';
+        '<button class="fw-b" data-act="retryCp">🔁 أعد هذه النقطة الآن</button><button class="fw-b sec sm" data-act="note">✍️ اكتب ملاحظة عما حدث</button><button class="fw-b sec sm" data-act="skipCp">⏭ تخطَّ (تُحفظ ناقصة)</button>';
       else { if (r.sensorWarn) h += '<div class="fw-card fw-warn">' + esc(r.sensorWarn) + '</div>'; h += '<button class="fw-b" data-act="nextAfterResult">التالي ▶</button>'; }
     } else if (fw.stage === 'answers') {
       const t = curTrial();
-      h += '<h2>انتهت المحاولة ' + t.index + ' — سؤال سريع</h2>' + t.answers.map(a => '<div class="fw-card"><div>' + esc(a.label) + '</div><div class="fw-step"><button data-act="ans" data-arg="' + a.id + ':-1">−</button><b id="fw-ans-' + a.id + '">' + (a.min || 0) + '</b><button data-act="ans" data-arg="' + a.id + ':1">+</button></div></div>').join('') +
-        '<button class="fw-b" data-act="saveAnswers">حفظ الإجابة ومتابعة ▶</button>';
+      h += '<h2>انتهت المحاولة ' + t.index + ' — سؤال سريع</h2>' + t.answers.map(a => '<div class="fw-card"><div>' + esc(a.label) + '</div><div class="fw-step"><button data-act="ans" data-arg="' + a.id + ':-1">−</button><b id="fw-ans-' + a.id + '">—</b><button data-act="ans" data-arg="' + a.id + ':1">+</button></div><button id="fw-uns-' + a.id + '" class="fw-b sm sec" data-act="unsure" data-arg="' + a.id + '">لا أستطيع التحديد</button></div>').join('') +
+        '<p style="font-size:13px;color:#94a3b8">حدّد العدد بنفسك أو اختر «لا أستطيع التحديد»؛ لا تخمّن.</p><button id="fw-ans-save" class="fw-b" data-act="saveAnswers" disabled>حفظ الإجابة ومتابعة ▶</button>';
     } else if (fw.stage === 'summary') {
       const s = summary(), ok = s.status === 'complete';
       h += '<h2 style="color:' + (ok ? '#86efac' : '#fdba74') + '">' + (ok ? '✅ اكتمل هذا المشهد بكل قراءاته' : '🟠 المشهد ناقص — ' + s.completeness + '% فقط') + '</h2>' +
         '<div class="fw-card">المحاولات الصالحة: <b>' + s.validTrials + ' من ' + s.requiredTrials + '</b> · نقاط القياس الصالحة: <b>' + s.validCheckpoints + ' من ' + s.totalCheckpoints + '</b></div>' +
         '<div class="fw-card"><table>' + s.trials.map(t => '<tr><th colspan="2">المحاولة ' + t.index + ': ' + esc(t.title) + (t.valid ? ' ✅' : ' ❌') + '</th></tr>' + t.checkpoints.map(c => '<tr><td>' + esc(c.label) + '</td><td>' + ({ ok: '✅ سُجّلت', failed: '❌ لم تكتمل', skipped: '⏭ تُخطيت', pending: '⏳ لم تُنفَّذ' }[c.status]) + (c.attempts > 1 ? ' (بعد ' + c.attempts + ' محاولات)' : '') + '</td></tr>').join('') + (t.needsAnswers ? '<tr><td>سؤال العدّ</td><td>' + (t.answered ? '✅ سُجّل' : '⏳ لم يُجَب') + '</td></tr>' : '')).join('') + '</table></div>';
+      const q = s.quality; h += '<div class="fw-card"><b>تقرير جودة المشهد</b><div>مرجع المسافة: دقيق (شريط/علامات) <b>' + q.preciseReferences + '</b> · تقريبي (خطوات/عين) <b>' + q.approximateReferences + '</b></div><div>محاولات فاشلة قبل النجاح: <b>' + q.failedAttempts + '</b> · نقاط متخطاة: <b>' + q.skipped + '</b></div><div>إجابات «غير محدد»: <b>' + q.unsureAnswers + '</b> · ملاحظاتك: <b>' + q.facilitatorNotes + '</b>' + (q.sensorWarnings ? ' · نقاط بلا قراءات حساسات: <b>' + q.sensorWarnings + '</b>' : '') + '</div>' + (q.approximateReferences ? '<div style="color:#fcd34d;font-size:13px">المسافات التقريبية تُحفظ لكنها لا تصلح مرجعًا دقيقًا لمعايرة تقدير المسافة.</div>' : '') + '</div>';
       if (!ok) h += '<div class="fw-card fw-warn"><b>مطلوب منك:</b> إعادة ' + s.missing.length + ' نقطة قياس لإكمال هذا المشهد (' + s.missing.slice(0, 4).map(m => 'المحاولة ' + m.trial + ' — ' + esc(m.label)).join('، ') + (s.missing.length > 4 ? '…' : '') + '). لن يُعدّ المشهد مكتملًا قبل ذلك.</div><button class="fw-b" data-act="redoMissing">🔁 أعد النقاط الناقصة الآن (' + s.missing.length + ')</button>';
       h += '<button class="fw-b ' + (ok ? '' : 'sec') + '" data-act="saveFile">💾 حفظ وتنزيل الملف</button><button class="fw-b blu" data-act="shareFile">📤 مشاركة الملف مع فريق التطوير</button><div id="fw-save-note" style="font-size:14px;color:#99f6e4;margin:6px 0">حُفظت نسخة على هذا الهاتف تلقائيًا.</div>' +
         '<button class="fw-b sec" data-act="redoScene">🔄 إعادة المشهد كاملًا من البداية</button><button class="fw-b sec" data-act="finish">' + (ok ? '✔ إنهاء، واختيار مشهد آخر' : 'إنهاء بدون إكمال (يُحفظ ناقصًا)') + '</button>';

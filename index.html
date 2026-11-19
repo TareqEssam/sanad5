@@ -229,15 +229,19 @@
           <input id="field-participant-code" maxlength="20" autocomplete="off" placeholder="اكتب رمزًا مثل P03" oninput="fieldRefreshProgress()" class="w-full mt-1 p-3 rounded-lg bg-gray-900 border border-gray-600 text-white" style="min-height:48px; user-select:text">
         </label>
         <div id="field-progress-list" class="rounded-lg bg-slate-900 border border-slate-700 p-3 text-sm leading-relaxed mb-2"></div>
-        <div class="grid grid-cols-2 gap-2 mb-2">
-          <label class="block text-sm">طراز الهاتف (اختياري، مثل Galaxy A54)
-            <input id="field-phone-model" maxlength="40" autocomplete="off" class="w-full mt-1 p-2 rounded-lg bg-gray-900 border border-gray-600 text-white" style="min-height:44px; user-select:text">
+        <div class="grid grid-cols-3 gap-2 mb-1">
+          <label class="block text-sm">الشركة (مطلوب)
+            <input id="field-phone-make" maxlength="40" autocomplete="off" placeholder="Samsung" class="w-full mt-1 p-2 rounded-lg bg-gray-900 border border-gray-600 text-white" style="min-height:44px; user-select:text">
           </label>
-          <label class="block text-sm">إصدار النظام (اختياري، مثل Android 14)
-            <input id="field-phone-os" maxlength="40" autocomplete="off" class="w-full mt-1 p-2 rounded-lg bg-gray-900 border border-gray-600 text-white" style="min-height:44px; user-select:text">
+          <label class="block text-sm">الطراز (مطلوب)
+            <input id="field-phone-model" maxlength="40" autocomplete="off" placeholder="Galaxy A54" class="w-full mt-1 p-2 rounded-lg bg-gray-900 border border-gray-600 text-white" style="min-height:44px; user-select:text">
+          </label>
+          <label class="block text-sm">النظام (مطلوب)
+            <input id="field-phone-os" maxlength="40" autocomplete="off" placeholder="Android 14" class="w-full mt-1 p-2 rounded-lg bg-gray-900 border border-gray-600 text-white" style="min-height:44px; user-select:text">
           </label>
         </div>
-        <p class="text-xs text-gray-400 mb-2">المتصفح لا يكشف طراز الآيفون ولا كثيرًا من هواتف أندرويد؛ كتابته يفيد تحليل الأداء. اتركه فارغًا إن فضّلت.</p>
+        <label class="flex items-start gap-2 text-xs text-gray-300 mb-2"><input id="field-phone-unknown" type="checkbox"><span>لا أعرف هذه المعلومات (تُسجَّل «غير معروف» بعلامة واضحة، وتقل قيمة الملف للتحليل). تجدها في: الإعدادات ← حول الهاتف.</span></label>
+        <p class="text-xs text-gray-400 mb-2">المتصفح لا يكشف طراز الآيفون ولا كثيرًا من هواتف أندرويد، وهذه المعلومات ضرورية لمقارنة الأداء بين الهواتف.</p>
         <label class="block text-sm mb-2">اختر المشهد الذي ستختبره الآن
           <select id="field-scene-select" onchange="fieldSceneChanged()" class="w-full mt-1 p-3 rounded-lg bg-gray-900 border border-gray-600 text-white" style="min-height:48px">
             <option value="approaching_vehicle">سيارة متحركة تقترب</option>
@@ -760,6 +764,7 @@ let fieldRecording = null, fieldAutosaveTimer = null, fieldStartedAt = 0, fieldL
 const FIELD_COCO_MAX_BOXES = 50;   // مرشحون أكثر أثناء التسجيل فقط؛ يُمرَّر للمنطق الإنتاجي أول COCO_MAX_BOXES منهم بعد تصفية 0.56
 const FIELD_COCO_FLOOR = 0.25;   // أدنى ثقة تُسجَّل أثناء الاختبار الميداني (قرارات التطبيق تبقى عند 0.56)
 let fieldSkips = {};
+let fieldSegment = null;   // معرّف نقطة القياس الجارية (محاولة.نقطة.إعادة) يُوسَم به كل حدث
 
 
 let barcodeDetector = null;
@@ -3809,7 +3814,7 @@ async function startFreeMode() { await startApp(true); }
 
 // مسجل الاختبار الميداني: الأدوات الصغيرة هنا، والمنطق في field_core.js والواجهة في field_ui.js
 function fieldClockNow() { return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now(); }
-function fieldPush(type, data) { if (!fieldRecording) return null; const ev = { t: Math.round(fieldClockNow() - fieldStartedAt), wallTime: new Date().toISOString(), type, data }; fieldRecording.events.push(ev); return ev; }
+function fieldPush(type, data) { if (!fieldRecording) return null; const ev = { t: Math.round(fieldClockNow() - fieldStartedAt), wallTime: new Date().toISOString(), type, data }; if (fieldSegment) ev.seg = fieldSegment; fieldRecording.events.push(ev); return ev; }
 function fieldSkipNote(reason) { fieldSkips[reason] = (fieldSkips[reason] || 0) + 1; }
 function fieldTakeSkips() { const s = fieldSkips; fieldSkips = {}; return s; }
 

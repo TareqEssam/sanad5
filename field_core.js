@@ -7,7 +7,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const PROTOCOL_VERSION = 'field-protocol-v2';
+  const PROTOCOL_VERSION = 'field-protocol-v3';
   const VEHICLES = ['car', 'bus', 'truck', 'motorcycle'];
   const COCO_MIN_SCORE = 0.45;                 // أدنى ثقة تُحتسب «رصدًا صالحًا» للتحقق (التسجيل نفسه بعتبة أدنى)
   const STAIRS = ['stairs', 'stairway', 'step'];
@@ -88,6 +88,26 @@
     return { have: 0, need: 1, ok: false, text: 'قاعدة غير معروفة' };
   }
 
+  /* ---------- طرق قياس المسافة المرجعية (الدقة الحقيقية لكل طريقة) ---------- */
+  const DIST_METHODS = {
+    tape: { label: 'شريط قياس', grade: 'precise', uncertainty: d => 0.05 },
+    marks: { label: 'علامات أرضية معايرة', grade: 'precise', uncertainty: d => 0.1 },
+    steps: { label: 'خطوات (تقريبي)', grade: 'approximate', uncertainty: d => Math.max(0.3, 0.15 * d) },
+    eye: { label: 'تقدير بالعين (تقريبي)', grade: 'approximate', uncertainty: d => Math.max(0.5, 0.25 * d) }
+  };
+
+  /* ---------- ثبات الهاتف أثناء النقطة: أرقام خام فقط بلا عتبات ---------- */
+  function stabilityOf(events, a, b) {
+    const M = events.filter(e => e.type === 'motion' && e.t >= a && e.t <= b), O = events.filter(e => e.type === 'orientation' && e.t >= a && e.t <= b);
+    const std = arr => { if (arr.length < 2) return null; const m = arr.reduce((s, v) => s + v, 0) / arr.length; return Math.sqrt(arr.reduce((s, v) => s + (v - m) * (v - m), 0) / arr.length); };
+    const r2 = v => v === null ? null : Math.round(v * 100) / 100;
+    const mag = M.filter(e => [e.data.x, e.data.y, e.data.z].every(Number.isFinite)).map(e => Math.hypot(e.data.x, e.data.y, e.data.z));
+    const rot = M.filter(e => [e.data.rx, e.data.ry, e.data.rz].every(Number.isFinite)).map(e => Math.hypot(e.data.rx, e.data.ry, e.data.rz));
+    return { motionSamples: M.length, orientationSamples: O.length, accelMagnitudeStd: r2(std(mag)),
+      rotationRateRms: rot.length ? r2(Math.sqrt(rot.reduce((s, v) => s + v * v, 0) / rot.length)) : null,
+      betaStdDeg: r2(std(O.map(e => e.data.beta).filter(Number.isFinite))), gammaStdDeg: r2(std(O.map(e => e.data.gamma).filter(Number.isFinite))) };
+  }
+
   /* ---------- بروتوكول المشاهد ---------- */
   const SAFETY_COMMON = 'المرافق المبصر وحده مسؤول عن السلامة. لا تنظر إلى الشاشة وأنت تمشي، وأوقف التجربة فورًا إن تغيّرت الظروف أو شعرت بعدم الأمان.';
   const SEG_NEED = 'يحتاج نموذج «المكان» (SegFormer) مُنزَّلًا ومفعّلًا؛ يفحصه التطبيق قبل البدء.';
@@ -95,7 +115,7 @@
   function distCp(id, m, rule, extra) {
     return Object.assign({
       id, label: 'عند ' + mText(m) + ' م', distanceM: m,
-      lines: ['قف بحيث تكون المسافة بين الهاتف والهدف ' + mText(m) + ' م تقريبًا (≈ ' + stepsFromM(m) + ' خطوات عادية، أو قِسها بشريط).', 'أمسك الهاتف أمام صدرك عموديًا وثبّته بلا حركة، والهدف في منتصف الصورة.', 'اضغط «بدء القياس»، ولا تتحرك حتى يكتمل.'],
+      lines: ['قِس المسافة بين الهاتف والهدف بشريط قياس أو بعلامات على الأرض (' + mText(m) + ' م). الأفضل ألا تعتمد على الخطوات؛ فإن لم يتوفر شريط فاستعمل ≈ ' + stepsFromM(m) + ' خطوات وسيُسجَّل المرجع «تقريبيًا».', 'أمسك الهاتف أمام صدرك عموديًا وثبّته بلا حركة، والهدف في منتصف الصورة.', 'اضغط «بدء القياس»، ولا تتحرك حتى يكتمل.'],
       minHoldMs: 8000, maxWaitMs: 45000, rule
     }, extra || {});
   }
@@ -171,7 +191,7 @@
         { title: 'من الأمام', prepare: ['قف عموديًا على الحافة بحيث تظهر الحافة والطريق أمامك.'] },
         { title: 'من زاوية جانبية', prepare: ['كالمحاولة السابقة لكن من زاوية جانبية (≈ 30°).'] }
       ],
-      makeCheckpoints: () => [3, 2].map(m => distCp('d' + m, m, { type: 'arch', labels: ['sidewalk', 'road'], all: true, minFrac: 0.03, minSamples: 2, hint: 'يجب أن يظهر الرصيف والطريق معًا: ارفع الهاتف قليلًا لتشمل الصورة الحافة وما بعدها.' }, { minHoldMs: 10000, maxWaitMs: 90000, needsSeg: true, lines: ['قف على بعد ' + mText(m) + ' م خلف الحافة (≈ ' + stepsFromM(m) + ' خطوات) ولا تقترب أكثر.', 'أمسك الهاتف أمام صدرك عموديًا وثبّته بلا حركة، والحافة والطريق ظاهران.', 'اضغط «بدء القياس» ولا تتحرك حتى يكتمل.'] }))
+      makeCheckpoints: () => [3, 2].map(m => distCp('d' + m, m, { type: 'arch', labels: ['sidewalk', 'road'], all: true, minFrac: 0.03, minSamples: 2, hint: 'يجب أن يظهر الرصيف والطريق معًا: ارفع الهاتف قليلًا لتشمل الصورة الحافة وما بعدها.' }, { minHoldMs: 10000, maxWaitMs: 90000, needsSeg: true, lines: ['قف على بعد ' + mText(m) + ' م خلف الحافة (قِسها بشريط أو علامات؛ الخطوات ≈ ' + stepsFromM(m) + ' وتُسجَّل تقريبية) ولا تقترب أكثر.', 'أمسك الهاتف أمام صدرك عموديًا وثبّته بلا حركة، والحافة والطريق ظاهران.', 'اضغط «بدء القياس» ولا تتحرك حتى يكتمل.'] }))
     },
     wall: {
       title: 'حائط أو عائق ثابت قريب', icon: '🧱', minutes: 8, needsSeg: true,
@@ -238,13 +258,17 @@
   // ctx: { sensorsExpected:boolean, markers:[kinds…] }
   function evaluateCheckpoint(cp, events, a, b, ctx) {
     ctx = ctx || {};
-    const checks = [], problems = [], guidance = [];
+    const checks = [], problems = [], guidance = []; let referenceGrade = null;
     const D = det(events, a, b), dur = Math.max(0, b - a);
     // 1) صحة حلقة الرصد
     const expected = Math.floor(dur / 1200), needTicks = Math.max(2, Math.floor(expected * 0.5));
     const healthOk = D.length >= needTicks;
     checks.push({ id: 'health', label: 'انتظام الرصد', ok: healthOk, text: 'قراءات الأجسام ' + D.length + '/' + needTicks });
     if (!healthOk) { problems.push('الرصد لم يعمل بانتظام (' + D.length + ' قراءة فقط)'); guidance.push('أغلق التطبيقات الأخرى وأبقِ الشاشة مضاءة والتطبيق في الواجهة، ولا تقفل الهاتف.'); }
+    // 1b) مدة القياس الفعلية شرط إلزامي (لا يكفي ضغط «إنهاء» مبكرًا)
+    const durOk = dur >= (cp.minHoldMs || 0) - 250;
+    checks.push({ id: 'duration', label: 'مدة القياس', ok: durOk, text: Math.round(dur / 1000) + ' من ' + Math.round((cp.minHoldMs || 0) / 1000) + ' ث' });
+    if (!durOk) { problems.push('أُنهي القياس قبل المدة المطلوبة'); guidance.push('اترك القياس يكتمل بنفسه ولا تضغط «إنهاء» قبل انتهاء المدة.'); }
     // 2) القاعدة الرئيسية
     const ev = ruleEvidence(cp.rule, events, a, b);
     checks.push({ id: 'target', label: 'القراءة المطلوبة', ok: ev.ok, text: ev.text });
@@ -264,9 +288,10 @@
     // 4) المسافة الفعلية (إن وُجد هدف مسافة)
     if (cp.distanceM) {
       const st = events.filter(e => e.type === 'checkpoint_start' && e.t >= a - 5 && e.t <= a + 5).pop();
-      const okD = !!(st && Number.isFinite(st.data.actualDistanceM));
-      checks.push({ id: 'distance', label: 'المسافة الفعلية', ok: okD, text: okD ? st.data.actualDistanceM + ' م' : 'غير مدخلة' });
-      if (!okD) problems.push('لم تُدخل المسافة الفعلية');
+      const okD = !!(st && Number.isFinite(st.data.actualDistanceM) && DIST_METHODS[st.data.distanceMethod]);
+      checks.push({ id: 'distance', label: 'المسافة الفعلية وطريقة قياسها', ok: okD, text: okD ? st.data.actualDistanceM + ' م — ' + DIST_METHODS[st.data.distanceMethod].label : 'غير مدخلة أو بلا طريقة قياس' });
+      if (!okD) { problems.push('لم تُدخل المسافة الفعلية وطريقة قياسها'); guidance.push('اختر كيف قِست المسافة (شريط، علامات، خطوات، تقدير) قبل بدء القياس.'); }
+      if (okD) referenceGrade = DIST_METHODS[st.data.distanceMethod].grade;
     }
     // 5) الحساسات (تحذير لا يمنع)
     let sensorWarn = null;
@@ -276,7 +301,7 @@
       if (n < 5) sensorWarn = 'لم تصل قراءات الحساسات في هذه النقطة؛ سُجّل ذلك ولن يمنع الإكمال.';
     }
     const ok = checks.filter(c => c.blocking !== false).every(c => c.ok);
-    return { ok, checks, problems, guidance, sensorWarn, evidence: { have: ev.have, need: ev.need } };
+    return { ok, checks, problems, guidance, sensorWarn, referenceGrade, stability: stabilityOf(events, a, b), evidence: { have: ev.have, need: ev.need } };
   }
 
   // تقدم حي مختصر أثناء القياس
@@ -309,9 +334,16 @@
       t.checkpoints.forEach(c => { if (c.status !== 'ok') missing.push({ trial: t.index, trialTitle: t.title, cp: c.id, label: c.label, status: c.status, problems: c.problems }); });
       if (t.needsAnswers && !t.answered) missing.push({ trial: t.index, trialTitle: t.title, cp: 'answers', label: 'سؤال العدّ', status: 'pending', problems: ['لم تُسجَّل إجابة العدّ'] });
     });
+    const att = [];
+    for (const e of events) if (e.type === 'checkpoint_end') att.push({ trial: e.data.trial, cp: e.data.cp, attempt: e.data.attempt, status: e.data.status, durationMs: e.data.durationMs || null, manualEnd: !!e.data.manual, problems: e.data.problems || [], distance: e.data.distance || null, stability: e.data.stability || null, sensorWarn: e.data.sensorWarn || null });
+    const finals = new Map(); att.forEach(x => finals.set(x.trial + ':' + x.cp, x));
+    const okFinals = [...finals.values()].filter(x => x.status === 'ok');
+    const quality = { attempts: att, preciseReferences: okFinals.filter(x => x.distance && x.distance.grade === 'precise').length, approximateReferences: okFinals.filter(x => x.distance && x.distance.grade === 'approximate').length,
+      failedAttempts: att.filter(x => x.status === 'failed').length, skipped: att.filter(x => x.status === 'skipped').length, unsureAnswers: events.filter(e => e.type === 'trial_answer').reduce((n, e) => n + Object.keys(e.data.unsure || {}).length, 0),
+      facilitatorNotes: events.filter(e => e.type === 'facilitator_note').length, sensorWarnings: att.filter(x => x.sensorWarn).length };
     const total = totalCp + totalAns, good = okCp + okAns;
     return { scene: sceneId, requiredTrials: trials.length, validTrials: trials.filter(t => t.valid).length, totalCheckpoints: totalCp, validCheckpoints: okCp, totalAnswers: totalAns, validAnswers: okAns,
-      completeness: total ? Math.round(good / total * 100) : 0, status: good === total ? 'complete' : (good ? 'partial' : 'empty'), trials, missing };
+      completeness: total ? Math.round(good / total * 100) : 0, status: good === total ? 'complete' : (good ? 'partial' : 'empty'), trials, missing, quality };
   }
 
   // شبكة دلالية منخفضة الدقة (≤ n×n) بأخذ العينة من منتصف كل خلية، مع مفتاح التصنيفات الموجودة فقط
@@ -325,5 +357,5 @@
     return { w, h, data, legend };
   }
 
-  return { PROTOCOL_VERSION, SCENES, SCENE_ORDER, COCO_MIN_SCORE, plan, evaluateCheckpoint, liveProgress, summarizeSession, ruleEvidence, topLabels, lowResGrid, lightBand, stepsFromM };
+  return { PROTOCOL_VERSION, DIST_METHODS, stabilityOf, SCENES, SCENE_ORDER, COCO_MIN_SCORE, plan, evaluateCheckpoint, liveProgress, summarizeSession, ruleEvidence, topLabels, lowResGrid, lightBand, stepsFromM };
 });

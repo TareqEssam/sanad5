@@ -103,6 +103,7 @@
     const out = [];
     for (const p of preds || []) {
       const meta = LOCAL_OBJECT_MAP[p.class]; if (!meta) continue;
+      if (sec.idx === 2 && p.class === 'person') continue;   // خلفك: قد يكون الشخص هو المستخدم نفسه
       const d = estimateObjectDistance(p, vw, vh);
       out.push({ cls: p.class, ar: meta.ar, score: p.score, priority: meta.priority, pos: getRelativePositionArabic(p.bbox, vw), steps: d && Number.isFinite(d.steps) ? d.steps : null });
     }
@@ -305,6 +306,34 @@
     }
   }
 
+  // أوامر مختصرة وواضحة: كل خطوة جملة واحدة، ثم نغمة عند الوصول، ثم «ثبّت».
+  const STEPS = {
+    1: { name: 'اليمين', ask: 'الآن، وأنت ثابت في مكانك، أدر الهاتف بيدك نحو يمينك تماماً، حتى تشير الكاميرا إلى يمينك. لا تحرك قدميك.', beep: 'right' },
+    3: { name: 'اليسار', ask: 'جيد. الآن أدر الهاتف ببطء إلى الجهة المقابلة، نحو يسارك تماماً. لا تحرك قدميك.', beep: 'left' },
+    2: { name: 'الخلف', ask: 'للخلف: ارفع الهاتف بجوار رأسك، وشاشته إلى الأمام بعيداً عنك، حتى تنظر الكاميرا الخلفية إلى ورائك. لا تلتفت ولا تحرك قدميك. إن كان ذلك صعباً عليك فاضغط إيقاف.', beep: 'center' }
+  };
+
+  async function sweepTo(target) {
+    const st = STEPS[target];
+    await speakWait(st.ask, 12000);
+    let reached = false;
+    const reachEnd = Date.now() + cfg.stallMs + 4000;
+    while (run && !run.cancelled && !run.urgent && Date.now() < reachEnd) {
+      if (Date.now() - run.lastYawAt > cfg.orientationStaleMs) { run.orientationLost = true; break; }
+      const sec = currentSector();
+      if (sec && sec.centered && sec.idx === target) { reached = true; break; }
+      await sleep(200);
+    }
+    if (!run || run.cancelled || run.urgent) return false;
+    if (!reached) { await speakWait('لم أتحقق من وصول الكاميرا إلى ' + st.name + '. سأتوقف هنا دون تخمين.', 5000); return false; }
+    try { playSpatialBeep(st.beep, false); } catch (e) {}
+    await speakWait('ثبّت.', 2000);
+    const ok = await collectSector(target);
+    if (!run || run.cancelled || run.urgent) return false;
+    if (!ok) { await speakWait('لم أحصل على قراءات كافية من جهة ' + st.name + '. سأتوقف هنا دون تخمين.', 5000); return false; }
+    return true;
+  }
+
   async function continueScan() {
     if (!run || !run.waitingForContinue || run.cancelled || run.finishing) return false;
     if (run.waitTimer) { clearTimeout(run.waitTimer); run.waitTimer = null; }
@@ -314,36 +343,32 @@
       await finish(false, false, 'فقدت قراءة حساس الاتجاه. لن أخمّن الجهات. أعد «صف المكان» إذا كنت ثابتاً وآمناً.');
       return false;
     }
-    const atStart = currentSector();
-    if (!atStart || !atStart.centered || atStart.idx !== 0) {
-      await finish(false, false, 'تغير اتجاه الهاتف قبل استكمال المسح. لن أصف الجهات على أساس اتجاه غير مؤكد. أعد الفحص من الاتجاه الذي تريد اعتباره أمامك.');
-      return false;
-    }
     try {
-      for (let target = 1; target <= 3 && run && !run.cancelled && !run.urgent; target++) {
-        const prompt = target === 1
-          ? 'وأنت ثابت في موضعك، حرّك الهاتف ببطء ناحية يمينك ربع دورة. لا تمش ولا تحرك قدميك. توقف عندما أقول ثبت.'
-          : 'استمر في تحريك الهاتف فقط، في الاتجاه نفسه، ربع دورة أخرى. ابق ثابتاً ولا تمش.';
-        await speakWait(prompt, 9000);
-        let reached = false;
-        const reachEnd = Date.now() + cfg.stallMs;
-        while (run && !run.cancelled && !run.urgent && Date.now() < reachEnd) {
-          if (Date.now() - run.lastYawAt > cfg.orientationStaleMs) { run.orientationLost = true; break; }
-          const sec = currentSector();
-          if (sec && sec.centered && sec.idx === target) { reached = true; break; }
-          await sleep(200);
-        }
-        if (!run || run.cancelled || run.urgent) break;
-        if (!reached) {
-          await speakWait('لم أستطع التحقق من وصول الهاتف إلى الجهة التالية. سأوقف المسح دون تخمين.', 5000);
-          break;
-        }
-        const ok = await collectSector(target);
-        if (!run || run.cancelled || run.urgent) break;
-        if (!ok) {
-          await speakWait('لم أحصل على قراءات كافية لهذه الجهة. سأوقف المسح بدلاً من تخمين بقية المكان.', 5000);
-          break;
-        }
+      if (run.stage === 'back') {
+        const okBack = await sweepTo(2);
+        if (!run || run.cancelled || run.urgent) { await finish(false); return true; }
+        await finish(false, false, okBack ? undefined : P.narrate(run.core.summary()));
+        return true;
+      }
+      const atStart = currentSector();
+      if (!atStart || !atStart.centered || atStart.idx !== 0) {
+        await finish(false, false, 'تغير اتجاه الهاتف قبل استكمال المسح. لن أصف الجهات على أساس اتجاه غير مؤكد. أعد الفحص من الاتجاه الذي تريد اعتباره أمامك.');
+        return false;
+      }
+      const okR = await sweepTo(1);
+      const okL = okR ? await sweepTo(3) : false;
+      if (!run || run.cancelled || run.urgent) { await finish(false); return true; }
+      if (okR && okL) {
+        // عرض الوصف الجانبي ثم عرض الخلف اختيارياً
+        run.stage = 'back'; run.waitingForContinue = true; showPlaceControls(true, true);
+        const txt = P.narrate(run.core.summary());
+        updateStatus(txt);
+        await speakWait(txt + ' إن أردت فحص الخلف دون أن تلتفت، اضغط زر استكمال الجهات أو قل استكمل الجهات. وإلا فانتهى الوصف.', 90000);
+        if (!run || run.cancelled || !run.waitingForContinue) return true;
+        run.waitTimer = setTimeout(() => {
+          if (run && run.waitingForContinue) finish(false, false, 'انتهت مهلة فحص الخلف. الوصف السابق كما هو. قل صف المكان لبدء فحص جديد.');
+        }, cfg.continueWaitMs);
+        return true;
       }
       await finish(false);
     } catch (e) {

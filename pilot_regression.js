@@ -67,3 +67,27 @@ const soMiss = F.evaluateCheckpoint(soCp, [{t:0,type:'checkpoint_start',data:{ac
 assert.equal(soMiss.ok, true); assert.equal(soMiss.detectionOutcome, 'target_not_observed');
 assert.ok(html.includes('value="static_object"'));
 console.log('PASS: indoor chair calibration scene');
+
+// Edge-clipped boxes must not produce an invented numeric distance (field session V20.16: rug/table labelled "bed").
+{
+  const src = html, map = src.slice(src.indexOf('const LOCAL_OBJECT_MAP ='), src.indexOf('const ADE20K_CRITICAL ='));
+  const fn = src.slice(src.indexOf('function estimateObjectDistance('), src.indexOf('function notifyCocoLoadFailure('));
+  const sb = {}; vm.createContext(sb); vm.runInContext('const STEP_METERS=0.70;\n' + map + '\n' + fn, sb);
+  const est = (p) => sb.estimateObjectDistance(p, 720, 1280);
+  assert.equal(est({ class: 'bed', bbox: [24.5, 621.3, 684.3, 644.4] }), null);
+  assert.equal(est({ class: 'bed', bbox: [-1.7, 691.6, 711.8, 566.9] }), null);
+  const near = est({ class: 'dog', bbox: [200, 300, 250, 975] });
+  assert.ok(near && near.clipped && !/\d/.test(near.text) && near.steps <= 2);
+  assert.equal(est({ class: 'person', bbox: [200, 0, 250, 1280] }).raw, 0.7);
+  const chair = est({ class: 'chair', bbox: [300, 440, 120, 399] });
+  assert.ok(chair && !chair.clipped && Math.abs(chair.raw - 1.93) < 0.1);
+  console.log('PASS: clipped boxes give no invented distance');
+}
+{
+  // Unclipped person still uses the width-based estimate (unchanged behaviour).
+  const sb2 = {}; vm.createContext(sb2);
+  vm.runInContext('const STEP_METERS=0.70;\n' + html.slice(html.indexOf('const LOCAL_OBJECT_MAP ='), html.indexOf('const ADE20K_CRITICAL =')) + '\n' + html.slice(html.indexOf('function estimateObjectDistance('), html.indexOf('function notifyCocoLoadFailure(')), sb2);
+  const p = sb2.estimateObjectDistance({ class: 'person', bbox: [200, 300, 250, 975] }, 720, 1280);
+  assert.ok(p && !p.clipped && Number.isFinite(p.raw));
+  console.log('PASS: width-based estimate for clipped-vertical person unchanged');
+}

@@ -106,3 +106,16 @@ console.log('PASS: indoor chair calibration scene');
   assert.equal(e3({ class: 'person', bbox: [200, 0, 250, 1280] }).raw, 0.7);
   console.log('PASS: full-width boxes give no invented distance');
 }
+
+// Range scene: chair at 3.5, 3 and 2.5 m, two trials, 10 s fixed windows; a miss stays valid.
+{
+  const rg = F.plan('static_object_range');
+  assert.equal(rg.trials.length, 2); assert.deepEqual(rg.trials[0].checkpoints.map(c => c.distanceM), [3.5, 3, 2.5]);
+  assert.equal(rg.totalCheckpoints, 6); assert.equal(rg.needsSeg, false);
+  assert.ok(rg.trials[0].checkpoints.every(c => c.minHoldMs === 10000 && c.rule.classes[0] === 'chair'));
+  const c0 = rg.trials[0].checkpoints[0];
+  const miss = F.evaluateCheckpoint(c0, [{t:0,type:'checkpoint_start',data:{actualDistanceM:3.5,distanceMethod:'marks'}},...Array.from({length:9},(_, i)=>({t:i*1200,type:'detection',data:{predictions:[]}}))], 0, 10500);
+  assert.equal(miss.ok, true); assert.equal(miss.detectionOutcome, 'target_not_observed');
+  assert.ok(html.includes('value="static_object_range"'));
+  console.log('PASS: range scene (2.5/3/3.5 m)');
+}

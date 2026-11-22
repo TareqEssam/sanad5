@@ -133,6 +133,18 @@
       ],
       makeCheckpoints: () => [4, 2].map(m => distCp('d' + m, m, { type: 'coco', classes: ['chair'], minTicks: 5, requireDistance: true, noun: 'قراءات كرسي', hint: 'لم يُرصد الكرسي: هذا يُسجَّل كنتيجة صالحة. لا تقرّب الهاتف ولا تغيّر الإعداد؛ انتقل للنقطة التالية.' }, { minHoldMs: 10000, maxWaitMs: 45000 }))
     },
+    static_object_range: {
+      title: 'مدى الكشف: كرسي ثابت (2.5 و3 و3.5 م)', icon: '📏', minutes: 8, needsSeg: false,
+      purpose: 'معرفة المسافة التي تهبط عندها ثقة كشف الكرسي تحت عتبة التطبيق (0.56)، وقياس خطأ المسافة عندها. جسم واحد وهاتف واحد؛ لا علاقة له بالمشي أو الشارع.',
+      place: 'غرفة داخلية خالية وجيدة الإضاءة، بأرض مستوية، فيها كرسي واحد بعيد عن الحائط بنحو متر ونصف على الأقل، وفراغ لا يقل عن 4 م أمامه.',
+      bring: 'شريط قياس وعلامات على الأرض عند 2.5 و3 و3.5 م من الكرسي، ودعامة ثابتة للهاتف. اترك الكرسي في مكانه طوال الاختبار.',
+      safety: ['اختبار ثابت داخل غرفة: لا مشي والهاتف مغلق الحركة، ولا سلالم ولا شارع.', SAFETY_COMMON],
+      trials: [
+        { title: 'المحاولة الأولى', prepare: ['علّم الأرض عند 3.5 و3 و2.5 م من مقدمة مقعد الكرسي بالشريط (القياس من العدسة). ثبّت الزوم والعدسة الخلفية وارتفاع الهاتف ولا تغيّرها. ابدأ من الأبعد.'] },
+        { title: 'المحاولة الثانية: تكرار نفس الإعداد', prepare: ['لا تحرّك الكرسي ولا تغيّر الزوم أو ارتفاع الهاتف. أعد النقاط الثلاث بالترتيب نفسه. إن لم يُرصد الكرسي فلا تقرّب الهاتف؛ فالإخفاق نتيجة تُسجَّل.'] }
+      ],
+      makeCheckpoints: () => [3.5, 3, 2.5].map(m => distCp('d' + m, m, { type: 'coco', classes: ['chair'], minTicks: 5, requireDistance: true, noun: 'قراءات كرسي', hint: 'لم يُرصد الكرسي: هذا يُسجَّل كنتيجة صالحة. لا تقرّب الهاتف ولا تغيّر الإعداد؛ انتقل للنقطة التالية.' }, { minHoldMs: 10000, maxWaitMs: 45000 }))
+    },
     approaching_vehicle: {
       title: 'سيارة متحركة تقترب', icon: '🚗', minutes: 10, needsSeg: false,
       purpose: 'قياس رصد التطبيق للمركبات المتحركة وتوقيت إنذار الاقتراب.',
@@ -252,7 +264,7 @@
       answers: [{ id: 'people', label: 'كم شخصًا ظهروا تقريبًا؟', min: 0, max: 200 }, { id: 'vehicles', label: 'كم مركبة ظهرت تقريبًا؟', min: 0, max: 100 }]
     }
   };
-  const SCENE_ORDER = ['static_object', 'approaching_vehicle', 'parked_vehicle', 'crowd', 'stairs', 'sidewalk_end', 'wall', 'low_light', 'mixed'];
+  const SCENE_ORDER = ['static_object', 'static_object_range', 'approaching_vehicle', 'parked_vehicle', 'crowd', 'stairs', 'sidewalk_end', 'wall', 'low_light', 'mixed'];
 
   // خطة كاملة مفرودة: trials[i].checkpoints هي كائنات جاهزة
   function plan(sceneId) {

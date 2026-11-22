@@ -91,3 +91,18 @@ console.log('PASS: indoor chair calibration scene');
   assert.ok(p && !p.clipped && Number.isFinite(p.raw));
   console.log('PASS: width-based estimate for clipped-vertical person unchanged');
 }
+
+// Boxes spanning >=90% of frame width: no invented distance (field session V20.17: rug labelled "bed" estimated at 1.4-1.5 m).
+{
+  const sb3 = {}; vm.createContext(sb3);
+  vm.runInContext('const STEP_METERS=0.70;\n' + html.slice(html.indexOf('const LOCAL_OBJECT_MAP ='), html.indexOf('const ADE20K_CRITICAL =')) + '\n' + html.slice(html.indexOf('function estimateObjectDistance('), html.indexOf('function notifyCocoLoadFailure(')), sb3);
+  const e3 = p => sb3.estimateObjectDistance(p, 720, 1280);
+  assert.equal(e3({ class: 'bed', bbox: [18, 703, 689, 382] }), null);
+  assert.equal(e3({ class: 'bed', bbox: [16, 695, 692, 426] }), null);
+  assert.equal(e3({ class: 'bed', bbox: [28, 684, 674, 582] }), null);
+  const wideDog = e3({ class: 'dog', bbox: [20, 400, 690, 300] });
+  assert.ok(wideDog && wideDog.clipped && !/\d/.test(wideDog.text));
+  assert.ok(!e3({ class: 'chair', bbox: [300, 440, 120, 399] }).clipped);
+  assert.equal(e3({ class: 'person', bbox: [200, 0, 250, 1280] }).raw, 0.7);
+  console.log('PASS: full-width boxes give no invented distance');
+}

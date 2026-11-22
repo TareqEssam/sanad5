@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <title>سند V20.17 — المساعد البصري المحلي</title>
+  <title>سند V20.18 — المساعد البصري المحلي</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
@@ -198,7 +198,7 @@
   <main id="settings-screen" class="hidden p-4 flex flex-col min-h-screen max-w-xl mx-auto w-full" role="main" aria-labelledby="settings-heading">
     <div class="w-full flex flex-col gap-4 pb-10">
       <h1 id="settings-heading" tabindex="-1" class="text-2xl font-bold text-center text-blue-400">
-        سند V20.17 — المساعد البصري الشامل المجاني
+        سند V20.18 — المساعد البصري الشامل المجاني
       </h1>
       <p class="text-sm text-gray-200 leading-relaxed">
         مشروع إنساني مجاني بالكامل لفاقدي وضعاف البصر في مصر: يعمل <strong>بلا تكلفة أو بطاقة بنكية</strong>. يجمع بين الرؤية المحلية (المسافة بالخطوات، تحذير الاقتراب السريع، الكشاف التلقائي في الظلام، <strong>وطواط الظلام (تجريبي)</strong> لكشف الحوائط والأبواب المغلقة، قراءة النصوص وصلاحية الدواء، العملة المصرية، فحص البقع وتنسيق الملابس، و<strong>المرآة الذكية (V20.8): فحص الشعر واللحية والنظارة والحجاب والملابس والحذاء وألوان المظهر داخل الهاتف بلا إنترنت وبلا أي نموذج خارجي</strong>) + دعم الخادم المجاني ومفاتيح Gemini 3 و OpenRouter المجانية.
@@ -2612,7 +2612,12 @@ function estimateObjectDistance(pred, vw, vh) {
   if (topTouch && botTouch) return { meters: 0.7, raw: 0.7, steps: 1, text: 'قريب جداً (أقل من خطوتين)' };
   const isPortrait = vh > vw, tanHalfV = isPortrait ? 0.65 : 0.50, tanHalfH = tanHalfV * (vw / vh);
   let distM = null, clippedNear = false;
-  if (meta.h && !topTouch && !botTouch) distM = (meta.h * vh) / (2 * Math.max(1, bh) * tanHalfV);
+  // صندوق يمتد على ≥90% من عرض الصورة: غالباً سطح/أرضية/جدار مصنَّف خطأً (قياس ميداني: سجادة «سرير» بتقدير 1.4 م) أو جسم يملأ الإطار؛ لا يصلح لحساب بُعد.
+  // الأجسام الخطرة (أولوية 3) تبقى «قريبة» بلا رقم؛ غيرها بلا مسافة.
+  if (bw >= vw * 0.9) {
+    if (meta.priority < 3 || !meta.h) return null;
+    clippedNear = true; distM = Math.min((meta.h * vh) / (2 * Math.max(1, bh) * tanHalfV), 1.4);
+  } else if (meta.h && !topTouch && !botTouch) distM = (meta.h * vh) / (2 * Math.max(1, bh) * tanHalfV);
   else if (meta.w && bx > vw * 0.03 && (bx + bw) < vw * 0.97) distM = (meta.w * vw) / (2 * Math.max(1, bw) * tanHalfH);
   else if (meta.h) {
     // الصندوق مقصوص عند حافة الصورة: ارتفاعه ليس ارتفاع الجسم، فلا يصلح لحساب بُعد. (قياس ميداني V20.16: سجادة/تربيزة كُشفت «سريراً» فنُطق لها «متر ونصف».)

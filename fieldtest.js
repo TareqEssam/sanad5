@@ -16,9 +16,9 @@ const cp = F.plan('parked_vehicle').trials[0].checkpoints[0];
 let r = F.evaluateCheckpoint(cp, [start(0, 6), ...ticks(8, () => [car(6)])], 0, 10500);
 ok('سيارة متوقفة: قراءات كافية بمسافة ⇒ ناجحة', r.ok);
 r = F.evaluateCheckpoint(cp, [start(0, 6), ...ticks(8, () => [])], 0, 10500);
-ok('سيارة متوقفة: لا سيارة ⇒ فاشلة مع توجيه', !r.ok && r.guidance.length > 0 && r.problems.some(p => /القراءة المطلوبة/.test(p)));
+ok('سيارة متوقفة: لا سيارة ⇒ تجميع صالح وغياب رصد', r.ok && r.detectionOutcome === 'target_not_observed');
 r = F.evaluateCheckpoint(cp, [start(0, 6), ...ticks(8, () => [{ class: 'car', score: 0.8, known: true, estimatedDistanceMeters: null }])], 0, 10500);
-ok('سيارة متوقفة: بلا تقدير مسافة ⇒ فاشلة', !r.ok);
+ok('سيارة متوقفة: بلا تقدير مسافة ⇒ نتيجة غياب صالحة', r.ok && r.detectionOutcome === 'target_not_observed');
 r = F.evaluateCheckpoint(cp, [{ t: 0, type: 'checkpoint_start', data: {} }, ...ticks(8, () => [car(6)])], 0, 10500);
 ok('سيارة متوقفة: دون إدخال المسافة الفعلية ⇒ فاشلة', !r.ok && r.checks.some(c => c.id === 'distance' && !c.ok));
 r = F.evaluateCheckpoint(cp, [{ t: 0, type: 'checkpoint_start', data: { actualDistanceM: 6 } }, ...ticks(8, () => [car(6)])], 0, 10500);
@@ -31,7 +31,7 @@ const stb = F.stabilityOf(mot, 0, 2000); ok('ثبات الهاتف: أرقام �
 r = F.evaluateCheckpoint(cp, [start(0, 6), ...ticks(2, () => [car(6)])], 0, 10500);
 ok('الرصد متعطل (قراءتان في 9.6 ث) ⇒ فشل الانتظام', !r.ok && r.checks.find(c => c.id === 'health' && !c.ok));
 r = F.evaluateCheckpoint(cp, [start(0, 6), ...ticks(8, () => [{ ...car(6), score: 0.3 }])], 0, 10500);
-ok('ثقة دون 0.45 لا تُحتسب رصدًا صالحًا', !r.ok);
+ok('ثقة دون 0.45 تسجل عدم رصد دون إبطال التجميع', r.ok && r.detectionOutcome === 'target_not_observed');
 
 // مركبة تقترب: العلامات
 const ev = F.plan('approaching_vehicle').trials[0].checkpoints[0];
@@ -48,12 +48,12 @@ const st = F.plan('stairs').trials[0].checkpoints[0];
 r = F.evaluateCheckpoint(st, [start(0, 4), ...ticks(8, () => []), arch(3000, [{ label: 'stairs', frac: 0.2 }]), arch(8000, [{ label: 'step', frac: 0.05 }])], 0, 10500);
 ok('سلالم: عينتان تحتويان السلم ⇒ ناجحة', r.ok);
 r = F.evaluateCheckpoint(st, [start(0, 4), ...ticks(8, () => []), arch(3000, [{ label: 'wall', frac: 0.5 }]), arch(8000, [{ label: 'wall', frac: 0.5 }])], 0, 10500);
-ok('سلالم: قراءات مكان بلا سلم ⇒ فاشلة مع توجيه الإمالة', !r.ok && r.guidance.some(g => /السلم/.test(g)));
+ok('سلالم: قراءات مكان بلا سلم ⇒ غياب رصد صالح', r.ok && r.detectionOutcome === 'target_not_observed');
 r = F.evaluateCheckpoint(st, [start(0, 4), ...ticks(8, () => [])], 0, 10500);
 ok('سلالم: لا قراءات مكان أبدًا ⇒ توجيه لتنزيل/تفعيل النموذج', !r.ok && r.guidance.some(g => /نموذج المكان/.test(g)));
 const sw = F.plan('sidewalk_end').trials[0].checkpoints[0];
 r = F.evaluateCheckpoint(sw, [start(0, 3), ...ticks(8, () => []), arch(3000, [{ label: 'sidewalk', frac: 0.3 }]), arch(8000, [{ label: 'sidewalk', frac: 0.3 }])], 0, 10500);
-ok('رصيف: الرصيف دون الطريق ⇒ فاشلة (يلزم الاثنان)', !r.ok);
+ok('رصيف: غياب الطريق نتيجة صالحة مع قراءات المكان', r.ok && r.detectionOutcome === 'target_not_observed');
 
 // الإضاءة
 const lt = F.plan('low_light').trials[0].checkpoints;

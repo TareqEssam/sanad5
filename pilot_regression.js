@@ -1,0 +1,59 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const F = require('./field_core.js');
+const ui = fs.readFileSync(__dirname + '/field_ui.js', 'utf8');
+const html = fs.readFileSync(__dirname + '/index.html', 'utf8');
+
+// Valid observation windows remain usable when the detector misses the known target.
+const cp = F.plan('parked_vehicle').trials[0].checkpoints[0];
+const ticks = Array.from({length: 9}, (_, i) => ({t:i*1200,type:'detection',data:{predictions:[]}}));
+const evs = [{t:0,type:'checkpoint_start',data:{actualDistanceM:6,distanceMethod:'tape'}},...ticks];
+const miss = F.evaluateCheckpoint(cp,evs,0,10500);
+assert.equal(miss.ok,true); assert.equal(miss.detectionOutcome,'target_not_observed');
+assert.equal(F.evaluateCheckpoint(cp,evs.slice(0,2),0,10500).ok,false);
+assert.equal(F.evaluateCheckpoint(cp,evs,0,2000).ok,false);
+assert.ok(!ui.includes('el >= cp.minHoldMs && prog.ok'));
+console.log('PASS: fixed-window collection and preserved detection misses');
+
+const allCountTrials = [1,2,3].flatMap(trial => [
+ {t:1,type:'checkpoint_end',data:{trial,cp:'pass',attempt:1,status:'ok'}},
+ {t:2,type:'trial_answer',data:{trial,answers:{vehicles:null},unsure:{vehicles:true}}}
+]);
+const uncertain = F.summarizeSession('approaching_vehicle',allCountTrials);
+assert.equal(uncertain.validAnswers,0); assert.notEqual(uncertain.status,'complete');
+allCountTrials.filter(e=>e.type==='trial_answer').forEach(e=>e.data.answers.vehicles=2);
+assert.equal(F.summarizeSession('approaching_vehicle',allCountTrials).status,'complete');
+console.log('PASS: unknown counts retained but never counted as usable references');
+
+const snapshotCode = ui.slice(ui.indexOf('function stampSession('),ui.indexOf('async function saveSession('));
+const fieldRecording = {scene:'approaching_vehicle',events:allCountTrials};
+const ctx = {fieldRecording,FC:F,now:()=>100,fieldStartedAt:0};
+vm.createContext(ctx); vm.runInContext(snapshotCode,ctx);
+const running = vm.runInContext('stampSession(false)',ctx);
+const ended = vm.runInContext('stampSession(true)',ctx);
+assert.equal(running.protocolComplete,true); assert.equal(running.sessionEnded,false);
+assert.equal(running.lifecycleStatus,'in_progress'); assert.equal(running.completed,false);
+assert.equal(ended.sessionEnded,true); assert.equal(ended.lifecycleStatus,'ended');
+assert.equal(ended.completionStatus,'complete');
+assert.ok(!ui.includes('snap.completed = true; download'));
+console.log('PASS: snapshot lifecycle is separate from protocol completion');
+
+assert.ok(!ui.includes("appVersion: 'V20.12'"));
+assert.ok(ui.includes('document.title.match'));
+console.log('PASS: export version derives from displayed release');
+
+const cameraCode = html.slice(html.indexOf('async function startCamera()'),html.indexOf('function stopCamera()'));
+(async () => {
+ const permissionFailure = {videoStream:null,videoElement:{},navigator:{mediaDevices:{getUserMedia:async()=>{throw Error('denied')}}}, updateStatus:()=>{},speak:()=>{}};
+ vm.createContext(permissionFailure); vm.runInContext(cameraCode,permissionFailure);
+ assert.equal(await vm.runInContext('startCamera()',permissionFailure),false);
+ const startCode = html.slice(html.indexOf('async function startApp('),html.indexOf('/* ============================================================================',html.indexOf('async function startApp(')));
+ let monitorStarts=0, messages=[];
+ const startup = {settingsScreen:{classList:{add(){}}},mainScreen:{classList:{remove(){}}},ensureAudioContext(){},initOrientationSensor(){},navigator:{},restoreCachedTransformersFlags:async()=>{},loadInstalledPacks:async()=>{},lifeMode:'walk',startCamera:async()=>false,stopLiveMonitoring(){},navHint:{},updateStatus:t=>messages.push(t),speak:t=>messages.push(t),keepScreenAwake(){throw Error('must not run')},startLiveMonitoring(){monitorStarts++}};
+ vm.createContext(startup); vm.runInContext(startCode,startup);
+ assert.equal(await vm.runInContext('startApp(true)',startup),false);
+ assert.equal(monitorStarts,0); assert.ok(messages.every(t=>!t.includes('سند جاهز')));
+ console.log('PASS: denied camera never starts monitoring or announces ready');
+})().catch(e=>{console.error(e);process.exitCode=1;});

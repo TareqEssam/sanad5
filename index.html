@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <title>سند V20.14 — المساعد البصري المحلي</title>
+  <title>سند V20.15 — المساعد البصري المحلي</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
@@ -198,7 +198,7 @@
   <main id="settings-screen" class="hidden p-4 flex flex-col min-h-screen max-w-xl mx-auto w-full" role="main" aria-labelledby="settings-heading">
     <div class="w-full flex flex-col gap-4 pb-10">
       <h1 id="settings-heading" tabindex="-1" class="text-2xl font-bold text-center text-blue-400">
-        سند V20.14 — المساعد البصري الشامل المجاني
+        سند V20.15 — المساعد البصري الشامل المجاني
       </h1>
       <p class="text-sm text-gray-200 leading-relaxed">
         مشروع إنساني مجاني بالكامل لفاقدي وضعاف البصر في مصر: يعمل <strong>بلا تكلفة أو بطاقة بنكية</strong>. يجمع بين الرؤية المحلية (المسافة بالخطوات، تحذير الاقتراب السريع، الكشاف التلقائي في الظلام، <strong>وطواط الظلام (تجريبي)</strong> لكشف الحوائط والأبواب المغلقة، قراءة النصوص وصلاحية الدواء، العملة المصرية، فحص البقع وتنسيق الملابس، و<strong>المرآة الذكية (V20.8): فحص الشعر واللحية والنظارة والحجاب والملابس والحذاء وألوان المظهر داخل الهاتف بلا إنترنت وبلا أي نموذج خارجي</strong>) + دعم الخادم المجاني ومفاتيح Gemini 3 و OpenRouter المجانية.
@@ -1272,21 +1272,24 @@ function setLifeMode(mode, silent = false) {
 }
 
 async function startCamera() {
-  if (videoStream) return;
-  if (!navigator.mediaDevices?.getUserMedia) { updateStatus('الكاميرا تحتاج رابط HTTPS.'); speak('الكاميرا غير متاحة'); return; }
+  if (videoStream && videoElement.videoWidth > 0 && !videoElement.paused) return true;
+  if (videoStream) stopCamera();
+  if (!navigator.mediaDevices?.getUserMedia) { updateStatus('الكاميرا تحتاج رابط HTTPS.'); speak('الكاميرا غير متاحة'); return false; }
   try {
     videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facingMode }, width: { ideal: 1280 }, height: { ideal: 720 }, focusMode: { ideal: 'continuous' } }, audio: false });
   } catch (e1) {
     try { videoStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); }
-    catch (e2) { updateStatus('امنح إذن الكاميرا من المتصفح.'); speak('تعذر الوصول إلى الكاميرا'); return; }
+    catch (e2) { updateStatus('امنح إذن الكاميرا من المتصفح.'); speak('تعذر الوصول إلى الكاميرا'); return false; }
   }
   videoElement.srcObject = videoStream;
   videoElement.classList.toggle('mirror', facingMode === 'user');
-  try { await videoElement.play(); } catch (e) {}
+  try { await videoElement.play(); } catch (e) { stopCamera(); updateStatus('تعذر بدء فيديو الكاميرا. أعد المحاولة.'); return false; }
+  if (!videoElement.videoWidth || videoElement.paused) { stopCamera(); updateStatus('الكاميرا لم تجهز بعد. أعد المحاولة.'); return false; }
   detectTorchSupport();
+  return true;
 }
 function stopCamera() { torchOn = false; torchAutoActivated = false; updateTorchUI(); if (videoStream) { videoStream.getTracks().forEach(t => t.stop()); videoStream = null; } videoElement.srcObject = null; }
-async function switchCameraFacing(target, silent = false) { facingMode = target; torchManualOverride = false; stopCamera(); await startCamera(); if (!silent) speak(facingMode === 'user' ? 'الكاميرا الأمامية للمرآة نشطة.' : 'الكاميرا الخلفية نشطة.'); }
+async function switchCameraFacing(target, silent = false) { facingMode = target; torchManualOverride = false; stopCamera(); const ready = await startCamera(); if (ready && !silent) speak(facingMode === 'user' ? 'الكاميرا الأمامية للمرآة نشطة.' : 'الكاميرا الخلفية نشطة.'); }
 
 function detectTorchSupport() { torchSupported = false; torchOn = false; torchAutoActivated = false; try { torchSupported = !!videoStream?.getVideoTracks()[0]?.getCapabilities?.().torch; } catch (e) {} if (torchBtn) torchBtn.style.opacity = torchSupported ? '1' : '0.45'; updateTorchUI(); }
 function updateTorchUI() {
@@ -3859,12 +3862,21 @@ async function startApp(fromUserGesture) {
   await restoreCachedTransformersFlags();
   loadInstalledPacks().catch(() => {});
   facingMode = lifeMode === 'grooming' ? 'user' : 'environment';
-  await startCamera(); keepScreenAwake();
+  const cameraReady = await startCamera();
+  if (!cameraReady) {
+    stopLiveMonitoring();
+    if (navHint) navHint.textContent = 'الرصد متوقف: الكاميرا غير جاهزة';
+    const msg = 'سند غير جاهز للفحص. تحقق من إذن الكاميرا ثم أعد المحاولة.';
+    updateStatus(msg); if (fromUserGesture) speak(msg);
+    return false;
+  }
+  keepScreenAwake();
   /* في وضع المرآة لا نحمّل نموذج coco-ssd: المسار محلي بالكامل بلا نموذج خارجي */
   if (localScanEnabled && lifeMode !== 'grooming') initLocalObjectEngine();
   setLifeMode(lifeMode, true); setNavMode(navModeEnabled, false); startLiveMonitoring();
   const msg = hasCloudVision() ? 'سند جاهز بالعيون الكاملة. الوضع: ' + LIFE_MODES[lifeMode].title + '.' : 'سند جاهز مجاناً محلياً. الوضع: ' + LIFE_MODES[lifeMode].title + '.';
   updateStatus(msg); hideRiskIndicator(); if (fromUserGesture) speak(msg);
+  return true;
 }
 
 

@@ -363,7 +363,7 @@ console.log('=== العامل embed_worker.js (DINOv2 + SegFormer: بروتوك�
   ok(/<script src="live_recog_core\.js"><\/script>/.test(html), 'index.html يحمّل live_recog_core.js');
   ok(/new Worker\('embed_worker\.js', \{ type: 'module' \}\)/.test(html), 'العامل يُنشأ من ملف الموقع نفسه (module)');
   ok(/CORE_FILES = \[[^\]]*live_recog_core\.js[^\]]*embed_worker\.js/.test(sw), 'sw.js يخزّن الملفين الجديدين للعمل بلا إنترنت');
-  ok(/const VERSION = 'v22'/.test(sw), 'رقم إصدار الـSW رُفع ليصل التحديث');
+  ok(/const VERSION = 'v[1-9]\d*'/.test(sw) && sw.includes("'sanad-core-' + VERSION"), 'Service Worker يربط مخزن الأصول بإصدار صالح');
   // الحلقة الحية لا تستدعي نموذج البصمات على الخيط الرئيسي أبداً
   const live = html.slice(html.indexOf('async function liveRecogTick()'), html.indexOf('function startLiveRecognition()'));
   ok(live.length > 500 && !/personalExtractor|ensurePersonalModel\(|embedFrame\(|embedCanvas\(|loadTransformersEngineFixed/.test(live), 'حلقة الرصد الحي: لا استدلال ولا تحميل على الخيط الرئيسي (عبر العامل فقط)');

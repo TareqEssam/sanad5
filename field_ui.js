@@ -66,7 +66,7 @@
   function appConfig() {
     const g = f => { try { return f(); } catch (e) { return undefined; } };
     let sonar = null; try { sonar = typeof sonarCalibrated !== 'undefined' ? !!sonarCalibrated : null; } catch (e) {}
-    return { appVersion: 'V20.12', protocol: FC.PROTOCOL_VERSION, swControlled: !!(navigator.serviceWorker && navigator.serviceWorker.controller),
+    return { appVersion: (document.title.match(/V\d+(?:\.\d+)+/) || ['unknown'])[0], protocol: FC.PROTOCOL_VERSION, swControlled: !!(navigator.serviceWorker && navigator.serviceWorker.controller),
       lifeMode: g(() => lifeMode), localScanEnabled: g(() => localScanEnabled), navModeEnabled: g(() => navModeEnabled), liveHazardEnabled: g(() => liveHazardEnabled), liveItemsEnabled: g(() => liveItemsEnabled), liveArchEnabled: g(() => liveArchEnabled),
       spatialAudioEnabled: g(() => spatialAudioEnabled), autoTorchEnabled: g(() => autoTorchEnabled), torchSupported: g(() => torchSupported), facingMode: g(() => facingMode),
       models: { coco: 'coco-ssd lite_mobilenet_v2', cocoLoaded: !!objectModel, segReady: !!g(() => segReady), embedReady: !!g(() => embedReady) },
@@ -95,7 +95,12 @@
   function stampSession(final) {
     const s = fieldRecording; if (!s) return null;
     const snap = JSON.parse(JSON.stringify(s)); snap.updatedAt = new Date().toISOString();
-    snap.summary = FC.summarizeSession(s.scene, s.events); snap.completionStatus = final ? (snap.summary.status) : 'in_progress';
+    snap.summary = FC.summarizeSession(s.scene, s.events);
+    snap.completionStatus = snap.summary.status;
+    snap.protocolComplete = snap.summary.status === 'complete';
+    snap.sessionEnded = !!final;
+    snap.lifecycleStatus = final ? 'ended' : 'in_progress';
+    snap.completed = !!final; // Compatibility: session ended, not proof of protocol completion.
     const c = {}; s.events.forEach(e => { c[e.type] = (c[e.type] || 0) + 1; }); snap.eventCounts = c;
     if (final) { snap.completed = true; snap.endedAt = new Date().toISOString(); snap.durationMs = Math.round(now() - fieldStartedAt); }
     return snap;
@@ -174,7 +179,7 @@
     if (!localScanEnabled) { localScanEnabled = true; try { writeLS(LS_LOCAL_SCAN, true); } catch (e) {} autoEnabled.push('localScan'); }
     if (!navModeEnabled) { setNavMode(true, false); autoEnabled.push('navMode'); }
     let prior = []; try { prior = (await dbAll()).filter(s => s.participantCode === participant && s.scene === scene); } catch (e) {}
-    try { setLifeMode('walk', true); await startApp(true); } catch (e) { try { restoreAppSettings(); } catch (e2) {} say('تعذر بدء التطبيق والكاميرا: ' + (e.message || e) + ' — أُعيدت إعدادات التطبيق كما كانت.'); return; }
+    try { setLifeMode('walk', true); if (!(await startApp(true))) throw new Error('الكاميرا غير جاهزة'); } catch (e) { try { restoreAppSettings(); } catch (e2) {} say('تعذر بدء التطبيق والكاميرا: ' + (e.message || e) + ' — أُعيدت إعدادات التطبيق كما كانت.'); return; }
     fieldStartedAt = now(); fieldLastDetectAt = 0; fieldSkips = {};
     fieldRecording = { schema: 'sanad-field-session-v2', protocol: FC.PROTOCOL_VERSION, id: 'sf_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8), run: prior.length + 1, participantCode: participant,
       scene, sceneTitle: plan.title, startedAt: new Date().toISOString(), plan: { trials: plan.trials.length, totalCheckpoints: plan.totalCheckpoints, checkpoints: plan.trials.map(t => t.checkpoints.map(c => ({ id: c.id, distanceM: c.distanceM || null, rule: c.rule.type })) ) },
@@ -233,7 +238,7 @@
         if (pending) return { type: 'cp', trial: t.index, cp: i };
       }
       const plan = fw.plan.trials[t.index - 1];
-      if (plan.answers.length && !t.answers && t.checkpoints.every(c => c.status === 'ok' || c.status === 'skipped')) return { type: 'answers', trial: t.index };
+      if (plan.answers.length && (!t.answers || (fw.redo && !t.answered && !fw.visited.has(t.index + ':answers'))) && t.checkpoints.every(c => c.status === 'ok' || c.status === 'skipped')) return { type: 'answers', trial: t.index };
     }
     return { type: 'summary' };
   }
@@ -270,7 +275,7 @@
       const undone = new Set(fieldRecording.events.filter(e => e.type === 'participant_marker_undo').map(e => e.data.ofT));
       const got = req.every(m => fieldRecording.events.some(e => e.type === 'participant_marker' && e.t >= fw.run.a && e.data.kind === m.kind && !undone.has(e.t)));
       if (got) { const lastT = Math.max(...fieldRecording.events.filter(e => e.type === 'participant_marker' && e.t >= fw.run.a && req.some(m => m.kind === e.data.kind)).map(e => e.t)); if (t - lastT >= 3000 && el >= cp.minHoldMs) return finishCheckpoint(); }
-    } else if (el >= cp.minHoldMs && prog.ok) return finishCheckpoint();
+    } else if (el >= cp.minHoldMs) return finishCheckpoint(); // Fixed window, independent of detector success.
     if (el >= cp.maxWaitMs) finishCheckpoint();
   }
   function finishCheckpoint(manual) {
@@ -279,7 +284,7 @@
     const ev = FC.evaluateCheckpoint(cp, fieldRecording.events, fw.run.a, t, { sensorsExpected: !fw.skipSensors });
     const status = ev.ok ? 'ok' : 'failed';
     const dm2 = cp.distanceM && fw.method ? FC.DIST_METHODS[fw.method] : null;
-    fieldPush('checkpoint_end', { trial: fw.trial, cp: cp.id, attempt: fw.attempt, segment: fieldSegment, status, manual: !!manual, durationMs: t - fw.run.a, checks: ev.checks, problems: ev.problems, evidence: ev.evidence, stability: ev.stability, sensorWarn: ev.sensorWarn,
+    fieldPush('checkpoint_end', { trial: fw.trial, cp: cp.id, attempt: fw.attempt, segment: fieldSegment, status, detectionOutcome: ev.detectionOutcome, manual: !!manual, durationMs: t - fw.run.a, checks: ev.checks, problems: ev.problems, evidence: ev.evidence, stability: ev.stability, sensorWarn: ev.sensorWarn,
       distance: cp.distanceM ? { target: cp.distanceM, actual: fw.actual, method: fw.method, uncertaintyM: dm2 ? Math.round(dm2.uncertainty(fw.actual) * 100) / 100 : null, grade: ev.referenceGrade } : null });
     fieldSegment = null;
     fw.visited.add(fw.trial + ':' + cp.id); fw.lastResult = ev; fw.lastGuidance = ev.guidance;
@@ -317,8 +322,8 @@
     mark(arg) { mark(arg); }, undo: undoMarker,
     ans(arg) { const [id, d] = arg.split(':'); const a = curTrial().answers.find(x => x.id === id); const cur = typeof fw.answersDraft[id] === 'number' ? fw.answersDraft[id] : null; const next = cur === null ? (Number(d) > 0 ? Math.max(a.min || 0, 1) : (a.min || 0)) : cur + Number(d); fw.answersDraft[id] = Math.max(a.min || 0, Math.min(a.max || 999, next)); fwAnswersRefresh(); },
     unsure(arg) { fw.answersDraft[arg] = fw.answersDraft[arg] === 'unsure' ? null : 'unsure'; fwAnswersRefresh(); },
-    saveAnswers() { const out = {}, unsure = {}; for (const a of curTrial().answers) { const v = fw.answersDraft[a.id]; if (v === 'unsure') { out[a.id] = null; unsure[a.id] = true; } else if (typeof v === 'number') out[a.id] = v; else return; } fieldPush('trial_answer', { trial: fw.trial, answers: out, unsure, confirmedByFacilitator: true }); fwAdvance(); },
-    async saveFile() { await saveSession(false); const snap = stampSession(false); snap.completed = true; download(snap, snap.id + '.json'); fw.exportedOnce = true; fwSetNote('نُزِّل الملف وحُفظت نسخة على الهاتف. أرسله لفريق التطوير.'); },
+    saveAnswers() { const out = {}, unsure = {}; for (const a of curTrial().answers) { const v = fw.answersDraft[a.id]; if (v === 'unsure') { out[a.id] = null; unsure[a.id] = true; } else if (typeof v === 'number') out[a.id] = v; else return; } fieldPush('trial_answer', { trial: fw.trial, answers: out, unsure, confirmedByFacilitator: Object.keys(unsure).length === 0 }); fw.visited.add(fw.trial + ':answers'); fwAdvance(); },
+    async saveFile() { await saveSession(false); const snap = stampSession(false); download(snap, snap.id + '.json'); fw.exportedOnce = true; fwSetNote('نُزِّل الملف وحُفظت نسخة على الهاتف. أرسله لفريق التطوير.'); },
     async shareFile() { await saveSession(false); const snap = stampSession(false); const r = await shareOrDownload(snap, snap.id + '.json'); fw.exportedOnce = r !== 'cancelled'; fwSetNote(r === 'shared' ? 'تمت المشاركة.' : (r === 'cancelled' ? 'أُلغيت المشاركة.' : 'المشاركة المباشرة غير مدعومة هنا فنُزِّل الملف.')); },
     redoMissing() { fw.redo = true; fw.visited = new Set(); fieldPush('redo_missing', {}); fwAdvance(); },
     async redoScene() { if (!confirm('سيُحفظ ما سُجّل حتى الآن ثم تبدأ جلسة جديدة للمشهد نفسه من أول محاولة. متابعة؟')) return; const sc = fieldRecording.scene; await endSession('restart'); $('field-scene-select').value = sc; $('field-scene-select').dataset.userPicked = '1'; window.startFieldRecording(); },

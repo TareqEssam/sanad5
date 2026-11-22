@@ -7,7 +7,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const PROTOCOL_VERSION = 'field-protocol-v3';
+  const PROTOCOL_VERSION = 'field-protocol-v4';
   const VEHICLES = ['car', 'bus', 'truck', 'motorcycle'];
   const COCO_MIN_SCORE = 0.45;                 // أدنى ثقة تُحتسب «رصدًا صالحًا» للتحقق (التسجيل نفسه بعتبة أدنى)
   const STAIRS = ['stairs', 'stairway', 'step'];
@@ -271,8 +271,17 @@
     if (!durOk) { problems.push('أُنهي القياس قبل المدة المطلوبة'); guidance.push('اترك القياس يكتمل بنفسه ولا تضغط «إنهاء» قبل انتهاء المدة.'); }
     // 2) القاعدة الرئيسية
     const ev = ruleEvidence(cp.rule, events, a, b);
-    checks.push({ id: 'target', label: 'القراءة المطلوبة', ok: ev.ok, text: ev.text });
-    if (!ev.ok) {
+    const targetIsCondition = cp.rule.type === 'light';
+    checks.push({ id: 'target', label: 'نتيجة الرصد (ليست شرط نجاح للتجميع)', ok: ev.ok, blocking: targetIsCondition, text: ev.text });
+    // A missed target is a valid measured outcome, not a reason to recollect until success.
+    // Lighting is a controlled test condition; unavailable segmentation is a collection failure.
+    if (['arch', 'mixed'].includes(cp.rule.type)) {
+      const needArch = cp.rule.minSamples || cp.rule.archMinSamples || 1;
+      const gotArch = arch(events, a, b).length;
+      checks.push({ id: 'arch_health', label: 'وصول قراءات نموذج المكان', ok: gotArch >= needArch, text: gotArch + '/' + needArch });
+      if (gotArch < needArch) { problems.push('لم تصل قراءات كافية من نموذج المكان.'); guidance.push('تحقق من جاهزية نموذج المكان ثم أعد التجميع.'); }
+    }
+    if (!ev.ok && targetIsCondition) {
       problems.push('لم تكتمل القراءة المطلوبة — ' + ev.text);
       if (cp.rule.type === 'arch' && ev.archTotal === 0) guidance.push('لم تصل أي قراءة من نموذج المكان: تأكد من تنزيله وتفعيل «الرصد التلقائي للمكان» ثم أعد.');
       if (ev.hint) guidance.push(ev.hint);
@@ -301,7 +310,7 @@
       if (n < 5) sensorWarn = 'لم تصل قراءات الحساسات في هذه النقطة؛ سُجّل ذلك ولن يمنع الإكمال.';
     }
     const ok = checks.filter(c => c.blocking !== false).every(c => c.ok);
-    return { ok, checks, problems, guidance, sensorWarn, referenceGrade, stability: stabilityOf(events, a, b), evidence: { have: ev.have, need: ev.need } };
+    return { ok, detectionOutcome: ev.ok ? 'target_observed' : 'target_not_observed', checks, problems, guidance, sensorWarn, referenceGrade, stability: stabilityOf(events, a, b), evidence: { have: ev.have, need: ev.need } };
   }
 
   // تقدم حي مختصر أثناء القياس
@@ -323,7 +332,8 @@
     }
     const trials = p.trials.map(t => {
       const cps = t.checkpoints.map(c => { const r = last.get(t.index + ':' + c.id); return { id: c.id, label: c.label, status: r ? r.status : 'pending', attempts: attempts.get(t.index + ':' + c.id) || 0, problems: r ? r.problems : [] }; });
-      const needsAnswers = t.answers.length > 0, answered = !!answers.get(t.index);
+      const needsAnswers = t.answers.length > 0, recordedAnswers = answers.get(t.index);
+      const answered = !!recordedAnswers && t.answers.every(a => Number.isFinite(recordedAnswers[a.id]) && recordedAnswers[a.id] >= a.min && recordedAnswers[a.id] <= a.max);
       return { index: t.index, title: t.title, checkpoints: cps, needsAnswers, answered, answers: answers.get(t.index) || null,
         valid: cps.every(c => c.status === 'ok') && (!needsAnswers || answered) };
     });

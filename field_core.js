@@ -121,6 +121,18 @@
   }
 
   const SCENES = {
+    static_object: {
+      title: 'معايرة داخلية: كرسي ثابت (2 م و4 م)', icon: '🪑', minutes: 5, needsSeg: false,
+      purpose: 'قياس خطأ تقدير المسافة لجسم ثابت معروف (كرسي) عند مسافتين مقاستين بدقة، ثم تكرار كل مسافة. لا علاقة له بالمشي أو الشارع.',
+      place: 'غرفة داخلية خالية وجيدة الإضاءة، بأرض مستوية، فيها كرسي واحد واضح أمام جدار بسيط.',
+      bring: 'شريط قياس (الأفضل) أو علامتان على الأرض عند 2 م و4 م من الكرسي. ثبّت الكرسي في مكانه طوال الاختبار.',
+      safety: ['اختبار ثابت داخل غرفة: لا مشي والهاتف مغلق الحركة، ولا سلالم ولا شارع.', SAFETY_COMMON],
+      trials: [
+        { title: 'المحاولة الأولى: الكرسي من الأمام', prepare: ['ضع الكرسي ثابتًا في منتصف الجدار وعلّم على الأرض 4 م و2 م منه بالشريط، ثم ثبّت الزوم والعدسة الخلفية ولا تغيّرهما.'] },
+        { title: 'المحاولة الثانية: تكرار نفس الإعداد', prepare: ['لا تحرّك الكرسي ولا تغيّر الزوم. أعد القياسين نفسيهما. إن لم يُرصد الكرسي فلا تقرّب الهاتف ولا تحسّن المشهد؛ فالإخفاق نتيجة تُسجَّل.'] }
+      ],
+      makeCheckpoints: () => [4, 2].map(m => distCp('d' + m, m, { type: 'coco', classes: ['chair'], minTicks: 5, requireDistance: true, noun: 'قراءات كرسي', hint: 'لم يُرصد الكرسي: هذا يُسجَّل كنتيجة صالحة. لا تقرّب الهاتف ولا تغيّر الإعداد؛ انتقل للنقطة التالية.' }, { minHoldMs: 10000, maxWaitMs: 45000 }))
+    },
     approaching_vehicle: {
       title: 'سيارة متحركة تقترب', icon: '🚗', minutes: 10, needsSeg: false,
       purpose: 'قياس رصد التطبيق للمركبات المتحركة وتوقيت إنذار الاقتراب.',
@@ -240,7 +252,7 @@
       answers: [{ id: 'people', label: 'كم شخصًا ظهروا تقريبًا؟', min: 0, max: 200 }, { id: 'vehicles', label: 'كم مركبة ظهرت تقريبًا؟', min: 0, max: 100 }]
     }
   };
-  const SCENE_ORDER = ['approaching_vehicle', 'parked_vehicle', 'crowd', 'stairs', 'sidewalk_end', 'wall', 'low_light', 'mixed'];
+  const SCENE_ORDER = ['static_object', 'approaching_vehicle', 'parked_vehicle', 'crowd', 'stairs', 'sidewalk_end', 'wall', 'low_light', 'mixed'];
 
   // خطة كاملة مفرودة: trials[i].checkpoints هي كائنات جاهزة
   function plan(sceneId) {

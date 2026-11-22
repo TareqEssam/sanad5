@@ -57,3 +57,13 @@ const cameraCode = html.slice(html.indexOf('async function startCamera()'),html.
  assert.equal(monitorStarts,0); assert.ok(messages.every(t=>!t.includes('سند جاهز')));
  console.log('PASS: denied camera never starts monitoring or announces ready');
 })().catch(e=>{console.error(e);process.exitCode=1;});
+
+// Indoor calibration scene: chair at 4 m and 2 m, two trials; a missed chair stays a valid collection.
+const so = F.plan('static_object');
+assert.equal(so.trials.length, 2); assert.deepEqual(so.trials[0].checkpoints.map(c => c.distanceM), [4, 2]);
+assert.equal(so.needsSeg, false); assert.equal(so.trials[0].checkpoints[0].minHoldMs, 10000);
+const soCp = so.trials[0].checkpoints[0];
+const soMiss = F.evaluateCheckpoint(soCp, [{t:0,type:'checkpoint_start',data:{actualDistanceM:4,distanceMethod:'tape'}},...Array.from({length:9},(_, i)=>({t:i*1200,type:'detection',data:{predictions:[]}}))], 0, 10500);
+assert.equal(soMiss.ok, true); assert.equal(soMiss.detectionOutcome, 'target_not_observed');
+assert.ok(html.includes('value="static_object"'));
+console.log('PASS: indoor chair calibration scene');

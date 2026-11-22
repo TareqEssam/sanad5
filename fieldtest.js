@@ -7,7 +7,7 @@ const car = (d) => ({ class: 'car', score: 0.8, known: true, relativePosition: '
 const ticks = (n, mk, t0 = 0) => Array.from({ length: n }, (_, i) => det(t0 + i * 1200, mk(i)));
 const start = (t, d, m) => ({ t, type: 'checkpoint_start', data: { actualDistanceM: d, distanceMethod: m || 'tape' } });
 
-ok('8 مشاهد ببروتوكول كامل', F.SCENE_ORDER.length === 8 && F.SCENE_ORDER.every(id => F.plan(id).trials.length >= 2 || id === 'approaching_vehicle'));
+ok('9 مشاهد ببروتوكول كامل', F.SCENE_ORDER.length === 9 && F.SCENE_ORDER.every(id => F.plan(id).trials.length >= 2 || id === 'approaching_vehicle'));
 ok('كل مشهد له محاولتان على الأقل (المركبة 3)', F.SCENE_ORDER.every(id => F.plan(id).trials.length >= 2) && F.plan('approaching_vehicle').trials.length === 3);
 ok('المشاهد المعتمدة على SegFormer: سلالم/رصيف/حائط/مختلط', ['stairs', 'sidewalk_end', 'wall', 'mixed'].every(id => F.plan(id).needsSeg) && !F.plan('parked_vehicle').needsSeg);
 

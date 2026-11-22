@@ -132,7 +132,7 @@
       else if (!nextScene) nextScene = id;
       return '<div style="display:flex;justify-content:space-between;gap:8px"><span>' + p.icon + ' ' + esc(p.title) + '</span><span style="color:' + col + '">' + mark + '</span></div>';
     }).join('');
-    list.innerHTML = '<div style="font-weight:700;margin-bottom:4px">تقدمك: ' + doneN + ' من 8 مشاهد</div>' + html + (nextScene && doneN < 8 ? '<div style="margin-top:6px;color:#99f6e4">المشهد التالي المقترح: ' + esc(FC.SCENES[nextScene].title) + '</div>' : (doneN === 8 ? '<div style="margin-top:6px;color:#86efac">اكتملت المشاهد الثمانية. شكرًا لك! صدّر الملفات وأرسلها لفريق التطوير.</div>' : ''));
+    list.innerHTML = '<div style="font-weight:700;margin-bottom:4px">تقدمك: ' + doneN + ' من ' + FC.SCENE_ORDER.length + ' مشاهد</div>' + html + (nextScene && doneN < FC.SCENE_ORDER.length ? '<div style="margin-top:6px;color:#99f6e4">المشهد التالي المقترح: ' + esc(FC.SCENES[nextScene].title) + '</div>' : (doneN === 8 ? '<div style="margin-top:6px;color:#86efac">اكتملت المشاهد الثمانية. شكرًا لك! صدّر الملفات وأرسلها لفريق التطوير.</div>' : ''));
     if (nextScene && $('field-scene-select') && !$('field-scene-select').dataset.userPicked) { $('field-scene-select').value = nextScene; window.fieldSceneChanged(); }
   };
   document.addEventListener('DOMContentLoaded', () => { window.fieldSceneChanged && window.fieldSceneChanged(); window.fieldRefreshProgress && window.fieldRefreshProgress(); const s = $('field-scene-select'); if (s) s.addEventListener('change', () => { s.dataset.userPicked = '1'; }); });

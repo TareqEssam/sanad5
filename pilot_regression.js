@@ -119,3 +119,15 @@ console.log('PASS: indoor chair calibration scene');
   assert.ok(html.includes('value="static_object_range"'));
   console.log('PASS: range scene (2.5/3/3.5 m)');
 }
+
+// Far scene: chair at 6, 5 and 4 m (two trials, 10 s fixed windows); a miss stays valid.
+{
+  const fr = F.plan('static_object_far');
+  assert.equal(fr.trials.length, 2); assert.deepEqual(fr.trials[0].checkpoints.map(c => c.distanceM), [6, 5, 4]);
+  assert.equal(fr.totalCheckpoints, 6); assert.equal(fr.needsSeg, false);
+  assert.ok(fr.trials[0].checkpoints.every(c => c.minHoldMs === 10000 && c.rule.classes[0] === 'chair'));
+  const miss = F.evaluateCheckpoint(fr.trials[0].checkpoints[0], [{t:0,type:'checkpoint_start',data:{actualDistanceM:6,distanceMethod:'marks'}},...Array.from({length:9},(_, i)=>({t:i*1200,type:'detection',data:{predictions:[]}}))], 0, 10500);
+  assert.equal(miss.ok, true); assert.equal(miss.detectionOutcome, 'target_not_observed');
+  assert.ok(html.includes('value="static_object_far"'));
+  console.log('PASS: far scene (4/5/6 m)');
+}

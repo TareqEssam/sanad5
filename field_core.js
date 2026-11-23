@@ -145,6 +145,18 @@
       ],
       makeCheckpoints: () => [3.5, 3, 2.5].map(m => distCp('d' + m, m, { type: 'coco', classes: ['chair'], minTicks: 5, requireDistance: true, noun: 'قراءات كرسي', hint: 'لم يُرصد الكرسي: هذا يُسجَّل كنتيجة صالحة. لا تقرّب الهاتف ولا تغيّر الإعداد؛ انتقل للنقطة التالية.' }, { minHoldMs: 10000, maxWaitMs: 45000 }))
     },
+    static_object_far: {
+      title: 'مدى بعيد: كرسي ثابت (4 و5 و6 م)', icon: '🔭', minutes: 8, needsSeg: false,
+      purpose: 'قياس ما إذا كان الكرسي يُكشف عند 4 و5 و6 م، وأي تمريرة (كاملة أو قص) تصمد أبعد، وخطأ المسافة هناك. جسم واحد وهاتف واحد؛ لا علاقة له بالمشي أو الشارع.',
+      place: 'غرفة أو ممر داخلي خالٍ بطول 7 م على الأقل، وجيد الإضاءة، وبأرض مستوية، فيه كرسي واحد مواجه للهاتف.',
+      bring: 'شريط قياس وعلامات على الأرض عند 4 و5 و6 م من مقدمة مقعد الكرسي، ودعامة ثابتة للهاتف. اترك الكرسي في مكانه طوال الاختبار. فعّل خيار الكشف البحثي الإضافي قبل البدء إن أردت مقارنة التمريرات.',
+      safety: ['اختبار ثابت داخل غرفة: لا مشي والهاتف مغلق الحركة، ولا سلالم ولا شارع.', SAFETY_COMMON],
+      trials: [
+        { title: 'المحاولة الأولى', prepare: ['علّم الأرض عند 6 و5 و4 م من مقدمة مقعد الكرسي بالشريط (القياس من العدسة). ثبّت الزوم والعدسة الخلفية وارتفاع الهاتف كما في الجلسات السابقة، ولا تغيّرها. ابدأ من الأبعد.'] },
+        { title: 'المحاولة الثانية: تكرار نفس الإعداد', prepare: ['لا تحرّك الكرسي ولا تغيّر الزوم أو ارتفاع الهاتف. أعد النقاط الثلاث بالترتيب نفسه. إن لم يُرصد الكرسي فلا تقرّب الهاتف؛ فالإخفاق نتيجة تُسجَّل.'] }
+      ],
+      makeCheckpoints: () => [6, 5, 4].map(m => distCp('d' + m, m, { type: 'coco', classes: ['chair'], minTicks: 5, requireDistance: true, noun: 'قراءات كرسي', hint: 'لم يُرصد الكرسي: هذا يُسجَّل كنتيجة صالحة. لا تقرّب الهاتف ولا تغيّر الإعداد؛ انتقل للنقطة التالية.' }, { minHoldMs: 10000, maxWaitMs: 45000 }))
+    },
     approaching_vehicle: {
       title: 'سيارة متحركة تقترب', icon: '🚗', minutes: 10, needsSeg: false,
       purpose: 'قياس رصد التطبيق للمركبات المتحركة وتوقيت إنذار الاقتراب.',
@@ -264,7 +276,7 @@
       answers: [{ id: 'people', label: 'كم شخصًا ظهروا تقريبًا؟', min: 0, max: 200 }, { id: 'vehicles', label: 'كم مركبة ظهرت تقريبًا؟', min: 0, max: 100 }]
     }
   };
-  const SCENE_ORDER = ['static_object', 'static_object_range', 'approaching_vehicle', 'parked_vehicle', 'crowd', 'stairs', 'sidewalk_end', 'wall', 'low_light', 'mixed'];
+  const SCENE_ORDER = ['static_object', 'static_object_range', 'static_object_far', 'approaching_vehicle', 'parked_vehicle', 'crowd', 'stairs', 'sidewalk_end', 'wall', 'low_light', 'mixed'];
 
   // خطة كاملة مفرودة: trials[i].checkpoints هي كائنات جاهزة
   function plan(sceneId) {

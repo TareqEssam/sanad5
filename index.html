@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <title>سند V20.20 — المساعد البصري المحلي</title>
+  <title>سند V20.21 — المساعد البصري المحلي</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
   <script src="coco_ssd_fixed_nms.js"></script>
@@ -198,7 +198,7 @@
   <main id="settings-screen" class="hidden p-4 flex flex-col min-h-screen max-w-xl mx-auto w-full" role="main" aria-labelledby="settings-heading">
     <div class="w-full flex flex-col gap-4 pb-10">
       <h1 id="settings-heading" tabindex="-1" class="text-2xl font-bold text-center text-blue-400">
-        سند V20.20 — المساعد البصري الشامل المجاني
+        سند V20.21 — المساعد البصري الشامل المجاني
       </h1>
       <p class="text-sm text-gray-200 leading-relaxed">
         مشروع إنساني مجاني بالكامل لفاقدي وضعاف البصر في مصر: يعمل <strong>بلا تكلفة أو بطاقة بنكية</strong>. يجمع بين الرؤية المحلية (المسافة بالخطوات، تحذير الاقتراب السريع، الكشاف التلقائي في الظلام، <strong>وطواط الظلام (تجريبي)</strong> لكشف الحوائط والأبواب المغلقة، قراءة النصوص وصلاحية الدواء، العملة المصرية، فحص البقع وتنسيق الملابس، و<strong>المرآة الذكية (V20.8): فحص الشعر واللحية والنظارة والحجاب والملابس والحذاء وألوان المظهر داخل الهاتف بلا إنترنت وبلا أي نموذج خارجي</strong>) + دعم الخادم المجاني ومفاتيح Gemini 3 و OpenRouter المجانية.
@@ -246,6 +246,7 @@
           <select id="field-scene-select" onchange="fieldSceneChanged()" class="w-full mt-1 p-3 rounded-lg bg-gray-900 border border-gray-600 text-white" style="min-height:48px">
             <option value="static_object">معايرة داخلية: كرسي ثابت (2 م و4 م)</option>
             <option value="static_object_range">مدى الكشف: كرسي ثابت (2.5 و3 و3.5 م)</option>
+            <option value="static_object_far">مدى بعيد: كرسي ثابت (4 و5 و6 م)</option>
             <option value="approaching_vehicle">سيارة متحركة تقترب</option>
             <option value="parked_vehicle">سيارة متوقفة وأنت تقترب منها</option>
             <option value="crowd">زحام أشخاص</option>

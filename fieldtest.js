@@ -87,9 +87,9 @@ const lg = F.lowResGrid(lab, 10, 10, { 0: 'Wall', 1: 'floor' }, 4); ok('lowResGr
 const tl = F.topLabels(lab, 10, 10, { 0: 'Wall', 1: 'floor' }, 3); ok('topLabels: يرتب بالنسبة ويطبّع الأسماء', tl[0].label === 'floor' && tl[0].frac === 0.7 && tl[1].label === 'wall');
 
 // ربط ثابت
-ok('الربط: عتبة التسجيل المنخفضة مع إبقاء 0.56 للقرارات', /fieldRecording \? FIELD_COCO_FLOOR : 0\.56/.test(html) && /filter\(p => p\.score >= 0\.56\)/.test(html));
+ok('الربط: عتبة التسجيل المنخفضة مع إبقاء 0.56 للقرارات', html.includes('floor: FIELD_COCO_FLOOR') && html.includes('objectModel.detect(videoElement, COCO_MAX_BOXES, 0.56)') && /filter\(p => p\.score >= 0\.56\)/.test(html));
 ok('الربط: قرارات التنبيه والمكان والحاسات والانقطاع', ["fieldPush('decision'", "fieldPush('arch'", "fieldPush('embed'", "fieldPush('torch'", "fieldPush('visibility'", "fieldPush('pagehide'", "fieldPush('orientation'", "fieldPush('motion'", "fieldPush('speech'"].every(x => html.includes(x) || ui.includes(x)));
-ok('الربط: 50 مرشحًا أثناء التسجيل ثم تصفية 0.56 وقص إلى 10 للمنطق الإنتاجي', /FIELD_COCO_MAX_BOXES : COCO_MAX_BOXES/.test(html) && /filter\(p => p\.score >= 0\.56\)\.slice\(0, COCO_MAX_BOXES\)/.test(html));
+ok('الربط: 50 مرشحًا أثناء التسجيل ثم تصفية 0.56 وقص إلى 10 للمنطق الإنتاجي', html.includes('maxBoxes: FIELD_COCO_MAX_BOXES') && /filter\(p => p\.score >= 0\.56\)\.slice\(0, COCO_MAX_BOXES\)/.test(html));
 ok('الواجهة: قاعدة البيانات تُفتح بإصدارها الحالي (لا VersionError) ويُعاد الإعداد بعد الجلسة', !/indexedDB\.open\(FIELD_DB_NAME, 1\)/.test(ui) && ui.includes('restoreAppSettings'));
 ok('الربط: مسافة خام raw في estimateObjectDistance', (html.match(/raw: distM/g) || []).length >= 3);
 ok('الواجهة: شاشات الإعادة والتوجيه والمشاركة', ['retryCp', 'redoMissing', 'redoScene', 'shareFile', 'saveFile', 'navigator.share', 'checkpoint_end', 'trial_answer'].every(x => ui.includes(x)));

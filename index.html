@@ -11,7 +11,7 @@
   <title>سند V20.19 — المساعد البصري المحلي</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+  <script src="coco_ssd_fixed_nms.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
   <style>
     html, body { height: 100%; overscroll-behavior: none; }
@@ -258,6 +258,7 @@
         </label>
         <div id="field-scene-instructions" class="rounded-lg bg-slate-900 border border-slate-700 p-3 text-sm leading-relaxed" aria-live="polite"></div>
         <label class="flex items-start gap-2 text-xs text-gray-300 mt-3"><input id="field-consent-check" type="checkbox"><span>أفهم أن التسجيل يتضمن بيانات تقنية عن المشهد والهاتف (المتصفح والنظام، المعالج والذاكرة، كرت الرسوم، الشاشة، الكاميرا، البطارية، الحساسات)، ولن أُدخل أسماء أو أرقام هواتف أو عناوين، وأنني مسؤول عن السلامة طوال الاختبار.</span></label>
+        <label class="flex items-start gap-2 text-sm text-amber-200 mt-3"><input id="field-detector-dual" type="checkbox"><span>تجربة كشف مركزية إضافية (غير مثبتة، أبطأ، لا تستخدم للملاحة). تظل متوقفة افتراضياً. اختر قبل بدء الجلسة.</span></label>
         <button id="field-start-button" type="button" onclick="startFieldRecording()" class="settings-action bg-teal-700 hover:bg-teal-600 text-white mt-3">▶ ابدأ هذا الاختبار</button>
         <button type="button" onclick="exportSavedFieldSessions(false)" class="settings-action bg-slate-700 hover:bg-slate-600 text-white mt-2">⬇ تنزيل كل التسجيلات المحفوظة في ملف واحد</button>
         <button type="button" onclick="exportSavedFieldSessions(true)" class="settings-action bg-blue-800 hover:bg-blue-700 text-white mt-2">📤 مشاركة كل التسجيلات المحفوظة</button>
@@ -680,6 +681,7 @@
 <script src="mirror_core.js"></script>
 <script src="live_recog_core.js"></script>
 <script src="field_core.js"></script>
+<script src="detector_pilot.js"></script>
 <script src="place_core.js"></script>
 <script>
 const DEFAULT_PUBLIC_PROXY_URL = '';
@@ -2699,7 +2701,11 @@ async function liveMonitorTick() {
     // الرصد يستمر أثناء كلام المساعد (كان يتوقف فيُترك المستخدم بلا رصد طوال الجملة)؛ الذي يُنطق أثناء الكلام هو الاقتراب العاجل فقط
     const vw = videoElement.videoWidth, vh = videoElement.videoHeight;
     const detectStarted = fieldClockNow();
-    const rawPreds = await objectModel.detect(videoElement, fieldRecording ? FIELD_COCO_MAX_BOXES : COCO_MAX_BOXES, fieldRecording ? FIELD_COCO_FLOOR : 0.56);
+    const pilot = fieldRecording && fieldRecording.appConfig && fieldRecording.appConfig.detectorPilot;
+    const detectionRun = fieldRecording
+      ? await SanadDetectorPilot.detect(objectModel, videoElement, { dual: !!(pilot && pilot.dualPass), floor: FIELD_COCO_FLOOR, maxBoxes: FIELD_COCO_MAX_BOXES })
+      : { predictions: await objectModel.detect(videoElement, COCO_MAX_BOXES, 0.56), meta: { mode: 'production-single', nmsIou: 0.56 } };
+    const rawPreds = detectionRun.predictions;
     const detectMs = fieldClockNow() - detectStarted;
     const preds = fieldRecording ? (rawPreds || []).filter(p => p.score >= 0.56).slice(0, COCO_MAX_BOXES) : rawPreds;   // قرارات التطبيق لا تتغير أثناء التسجيل
     cocoLastDetectMs = Math.round(detectMs * 10) / 10; cocoEmaDetectMs = cocoDetectSamples ? (cocoEmaDetectMs * 0.75 + detectMs * 0.25) : detectMs; cocoDetectSamples++;
@@ -2707,11 +2713,11 @@ async function liveMonitorTick() {
     if (fieldRecording) {
       const readAt = fieldClockNow();
       fieldPush('detection', { detectMs: Math.round(detectMs * 10) / 10, gapSincePreviousDetectMs: fieldLastDetectAt ? Math.round((readAt - fieldLastDetectAt) * 10) / 10 : null, frameWidth: vw, frameHeight: vh,
-        scoreFloor: FIELD_COCO_FLOOR, appThreshold: 0.56, maxBoxesRecording: FIELD_COCO_MAX_BOXES, maxBoxesProduction: COCO_MAX_BOXES, candidates: (rawPreds || []).length, pitchBeta: phonePitchBeta, lifeMode, assistantSpeaking: !!assistantSpeaking, skipped: fieldTakeSkips(),
+        detectorPilot: detectionRun.meta, scoreFloor: FIELD_COCO_FLOOR, appThreshold: 0.56, maxBoxesRecording: FIELD_COCO_MAX_BOXES, maxBoxesProduction: COCO_MAX_BOXES, candidates: (rawPreds || []).length, pitchBeta: phonePitchBeta, lifeMode, assistantSpeaking: !!assistantSpeaking, skipped: fieldTakeSkips(),
         frameQuality: q ? { meanLuminance: Math.round(q.meanY * 10) / 10, sharpness: Math.round(q.sharpness * 100) / 100, lightLabel: q.lightLabel, lensCovered: !!q.isLensCovered, torchOn: !!torchOn, torchAuto: !!torchAutoActivated } : null,
         predictions: (rawPreds || []).map(p => {
           const known = !!LOCAL_OBJECT_MAP[p.class], d = known ? estimateObjectDistance(p, vw, vh) : null;
-          return { class: p.class, score: Number(p.score) || 0, bbox: Array.isArray(p.bbox) ? p.bbox.map(v => Math.round(v * 10) / 10) : null, bboxNorm: Array.isArray(p.bbox) && vw && vh ? [p.bbox[0] / vw, p.bbox[1] / vh, p.bbox[2] / vw, p.bbox[3] / vh].map(v => Math.round(v * 10000) / 10000) : null, relativePosition: Array.isArray(p.bbox) ? getRelativePositionArabic(p.bbox, vw) : null, known, passedAppThreshold: p.score >= 0.56,
+          return { detectionSource: p.detectionSource || 'full', roi: p.roi || null, class: p.class, score: Number(p.score) || 0, bbox: Array.isArray(p.bbox) ? p.bbox.map(v => Math.round(v * 10) / 10) : null, bboxNorm: Array.isArray(p.bbox) && vw && vh ? [p.bbox[0] / vw, p.bbox[1] / vh, p.bbox[2] / vw, p.bbox[3] / vh].map(v => Math.round(v * 10000) / 10000) : null, relativePosition: Array.isArray(p.bbox) ? getRelativePositionArabic(p.bbox, vw) : null, known, passedAppThreshold: p.score >= 0.56,
             estimatedDistanceMeters: d && Number.isFinite(d.meters) ? d.meters : null, rawDistanceMeters: d && Number.isFinite(d.raw) ? Math.round(d.raw * 100) / 100 : null, estimatedSteps: d && Number.isFinite(d.steps) ? d.steps : null };
         }) });
       fieldLastDetectAt = readAt;

@@ -1,0 +1,37 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const P=require('./detector_pilot');
+const tf=require(process.env.TFJS_PATH || '@tensorflow/tfjs');
+const vendor=fs.readFileSync(__dirname+'/coco_ssd_fixed_nms.js','utf8');
+const ctx={exports:{},module:{exports:{}},require:()=>tf};vm.createContext(ctx);vm.runInContext(vendor,ctx);
+const model=new ctx.exports.ObjectDetection('lite_mobilenet_v2');
+const boxes=[[.1,.1,.6,.6],[.1,.25,.6,.75],[.1,.26,.6,.76],[.7,.7,.9,.9]];
+// Pair 0/1 IoU ~.54 survives .56 but NOT .25. Pair 1/2 is a duplicate.
+model.model={executeAsync:async()=>[tf.tensor3d([.9,.8,.7,.3],[1,4,1]),tf.tensor4d(boxes.flat(),[1,4,1,4])]};
+const h=fs.readFileSync(__dirname+'/index.html','utf8'),geometry={};vm.createContext(geometry);
+vm.runInContext('const STEP_METERS=.7;'+h.slice(h.indexOf('const LOCAL_OBJECT_MAP ='),h.indexOf('const ADE20K_CRITICAL ='))+h.slice(h.indexOf('function estimateObjectDistance('),h.indexOf('function notifyCocoLoadFailure(')),geometry);
+(async()=>{
+ await tf.setBackend('cpu');const input=tf.zeros([1280,720,3],'int32');const before=tf.memory().numTensors;
+ const prod=await model.detect(input,10,.56),research=await model.detect(input,50,.25,.56),oldResearch=await model.detect(input,50,.25);
+ assert.equal(prod.length,2);assert.equal(oldResearch.filter(p=>p.score>=.56).length,1);
+ assert.deepEqual(JSON.parse(JSON.stringify(research.filter(p=>p.score>=.56).slice(0,10))),JSON.parse(JSON.stringify(prod)));
+ assert.equal(tf.memory().numTensors,before);input.dispose();console.log('PASS real TFJS NMS: fixed IoU preserves production overlap behavior, old floor does not; no tensor leak');
+ const roi=P.centralRoi(720,1280),whole={class:'chair',score:.8,bbox:[260,450,140,300]};
+ const local={class:'chair',score:.9,bbox:[80,130,140,300]},mapped=P.remap(local,roi,360,640);
+ assert.deepEqual(mapped.bbox,whole.bbox);
+ assert.equal(geometry.estimateObjectDistance(whole,720,1280).raw,geometry.estimateObjectDistance(mapped,720,1280).raw);
+ assert.deepEqual(P.remap({class:'chair',bbox:[40,65,70,150]},roi,180,320).bbox,whole.bbox);
+ assert.equal(P.remap({bbox:[0,80,40,60]},roi,360,640),null);
+ assert.equal(P.remap({bbox:[50,80,-1,60]},roi,360,640),null);
+ assert.equal(P.merge([whole],[mapped]).predictions.length,1);
+ assert.equal(P.merge([whole],[Object.assign({},mapped,{class:'bench',score:.99})]).predictions[0].class,'chair');
+ assert.equal(P.merge([Object.assign({},whole,{score:.3})],[mapped]).predictions[0].detectionSource,'roi');
+ console.log('PASS ROI remap and full-frame distance invariance, scaled canvas, crop edge rejection, cross-pass dedup and full-qualified preference');
+ let draws=[],calls=[];global.document={createElement:()=>({getContext:()=>({drawImage:(...a)=>draws.push(a)})})};
+ const fake={detect:async(...a)=>{calls.push(a);return calls.length%2===1?[whole]:[local];}};
+ const single=await P.detect(fake,{videoWidth:720,videoHeight:1280},{dual:false});assert.equal(calls.length,1);assert.equal(draws.length,0);assert.equal(calls[0][3],.56);
+ calls=[];draws=[];const dual=await P.detect(fake,{videoWidth:720,videoHeight:1280},{dual:true});assert.equal(calls.length,2);assert.equal(draws.length,2);assert.equal(dual.predictions.length,1);assert.equal(dual.meta.duplicates,1);assert.equal(dual.meta.roi.width,360);
+ calls=[];const failure=await P.detect({detect:async()=>{if(calls.push(1)===2)throw Error('test');return [whole];}},{videoWidth:720,videoHeight:1280},{dual:true});assert.equal(failure.meta.roiError,'roi_pass_failed');assert.equal(failure.predictions.length,1);
+ assert.match(h,/const pilot = fieldRecording &&/);assert.match(h,/rawPreds = detectionRun.predictions/);assert.match(h,/id="field-detector-dual" type="checkbox">/);assert.ok(!h.includes('id="field-detector-dual" type="checkbox" checked'));
+ console.log('PASS opt-in default, two frozen frame inputs, failed ROI fallback and pilot metadata');
+})().catch(e=>{console.error(e);process.exitCode=1;});

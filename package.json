@@ -1,0 +1,15 @@
+{
+  "name": "sanad-detection-pilot-review",
+  "version": "0.0.1",
+  "description": "Sanad review-only detection pilot tests",
+  "scripts": {
+    "test": "node detector_pilot_test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED",
+  "private": true,
+  "devDependencies": {
+    "@tensorflow/tfjs": "4.20.0"
+  }
+}

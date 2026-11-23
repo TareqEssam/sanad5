@@ -2,6 +2,7 @@
 set -eu
 cd "$(dirname "$0")"
 node detector_pilot_test.js
+node detector_multipass_test.js
 node pilot_regression.js
 node placetest.js
 node placeflowtest.js

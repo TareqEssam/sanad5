@@ -70,7 +70,7 @@
       lifeMode: g(() => lifeMode), localScanEnabled: g(() => localScanEnabled), navModeEnabled: g(() => navModeEnabled), liveHazardEnabled: g(() => liveHazardEnabled), liveItemsEnabled: g(() => liveItemsEnabled), liveArchEnabled: g(() => liveArchEnabled),
       spatialAudioEnabled: g(() => spatialAudioEnabled), autoTorchEnabled: g(() => autoTorchEnabled), torchSupported: g(() => torchSupported), facingMode: g(() => facingMode),
       models: { coco: 'coco-ssd lite_mobilenet_v2', cocoLoaded: !!objectModel, segReady: !!g(() => segReady), embedReady: !!g(() => embedReady) },
-      detectorPilot: { revision: 'roi-review-1', dualPass: !!(document.getElementById('field-detector-dual') || {}).checked, cropFraction: 0.5, nmsIou: 0.56, mergeIou: 0.5, roiEdgeMargin: 0.02 },
+      detectorPilot: (function () { const dual = !!(document.getElementById('field-detector-dual') || {}).checked; return { revision: dual ? 'multi-pass-review-1' : 'roi-review-1', dualPass: dual, passes: dual ? ['roi', 'square', 'focus'] : [], focusTrigger: 'weak 0.25<=score<0.56, one box per frame, square side ~2.2x object, min 35% of short side', squareBand: 'min(w,h) square at frame centre', cropFraction: 0.5, nmsIou: 0.56, mergeIou: 0.5, roiEdgeMargin: 0.02 }; })(),
       thresholds: { appScore: 0.56, recordFloor: FIELD_COCO_FLOOR, maxBoxes: COCO_MAX_BOXES, liveLoopMs: 1200 }, sonarCalibrated: sonar,
       hazardPoolSize: g(() => hazardPool.length) === undefined ? null : g(() => hazardPool.length), personalItemsCount: g(() => personalItems ? personalItems.length : null) };
   }
